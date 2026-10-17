@@ -29,5 +29,5 @@ def test_prompt_lists_fired_and_overridden():
     fired = hit(HitResult.FIRED, {"a.b": 1}, {"a.b": 0})
     over = hit(HitResult.OVERRIDDEN, name="Vieja")
     p = decision_prompt(Decision(Outcome.HOLD, (fired, over)), "ACME 100 USD")
-    assert "ACME 100 USD" in p and "Resultado: HOLD" in p
+    assert "ACME 100 USD" in p and "Decisión del agente: Frenada" in p
     assert "Límite por pago" in p and "Vieja" in p
