@@ -35,13 +35,22 @@ def create_invoice(
     notifier=Depends(get_notifier),
 ) -> Created:
     if file is not None and file.filename:
-        content = file.file.read()
-        content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
-        doc = IncomingDocument(SourceType.UPLOAD, f"upload:{file.filename}", file.filename, content_type, content)
+        doc = document_from_upload(file)
     elif text and text.strip():
         doc = IncomingDocument(SourceType.TEXT, "web:text", "pegado.txt", "text/plain", text.encode())
     else:
         raise HTTPException(status_code=422, detail="Sube un archivo o pega el texto de la factura")
+    return receive_document(doc, background, queries, storage, invoices, pipeline, notifier)
+
+
+def document_from_upload(file: UploadFile) -> IncomingDocument:
+    content = file.file.read()
+    content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+    return IncomingDocument(SourceType.UPLOAD, f"upload:{file.filename}", file.filename, content_type, content)
+
+
+def receive_document(doc, background, queries, storage, invoices, pipeline, notifier) -> Created:
+    """Store the document, create its invoice and process it in the background. Shared with POST /chat."""
     if not doc.content:
         raise HTTPException(status_code=422, detail="El archivo está vacío")
 
