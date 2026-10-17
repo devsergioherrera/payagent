@@ -78,6 +78,63 @@ export const rules: RuleView[] = [
   },
 ];
 
+type Cond = RuleView["conditions"][number];
+const cond = (source: string, column: string, operator: Cond["operator"], value: Cond["value"], text: string): Cond => ({ source, column, operator, value, text });
+const extra = (
+  id: string, name: string, natural_language: string, effect: RuleView["effect"], origin: RuleView["origin"],
+  times_fired: number, conditions: Cond[], more: Partial<RuleView> = {},
+): RuleView => ({
+  id, name, natural_language, effect, overridable: effect !== "HOLD", origin,
+  proposed_by: origin === "AGENT" ? "Agente" : "Sergio", proposed_at: "2026-10-16T15:00:00Z",
+  approved_by: "Sergio", approved_at: "2026-10-16T15:20:00Z", active: true, times_fired, conditions, ...more,
+});
+
+const moreRules: RuleView[] = [
+  extra("r3", "Cuenta bancaria distinta", "Si la cuenta de la factura no es la del proveedor, avísame.", "ESCALATE", "HUMAN", 2,
+    [cond("invoice_checks", "cuenta_distinta", "EQ", true, "Validaciones · cuenta bancaria distinta = sí")]),
+  extra("r8", "Factura duplicada", "No pagues dos veces la misma factura.", "HOLD", "HUMAN", 3,
+    [cond("invoice_checks", "duplicada", "EQ", true, "Validaciones · duplicada = sí")]),
+  extra("r20", "Fecha de emisión futura", "Una factura con fecha del futuro es sospechosa.", "HOLD", "HUMAN", 0,
+    [cond("invoice_checks", "fecha_futura", "EQ", true, "Validaciones · fecha de emisión futura = sí")]),
+  extra("r21", "Sin fecha de vencimiento", "Si no dice cuándo vence, que lo revise una persona.", "ESCALATE", "AGENT", 5,
+    [cond("invoice_checks", "sin_vencimiento", "EQ", true, "Validaciones · sin fecha de vencimiento = sí")]),
+  extra("r22", "Número de factura inválido", "Los números de factura raros se revisan.", "ESCALATE", "HUMAN", 1,
+    [cond("invoice_checks", "numero_valido", "EQ", false, "Validaciones · número válido = no")]),
+  extra("r4", "País restringido", "No pagues a proveedores de países fuera de la lista.", "HOLD", "HUMAN", 0,
+    [cond("vendor", "country", "NOT_IN", ["CO", "MX", "BR", "US"], "Proveedor · país no está en CO, MX, BR, US")]),
+  extra("r23", "Proveedor nuevo", "El primer pago a un proveedor nuevo lo apruebo yo.", "ESCALATE", "HUMAN", 6,
+    [cond("vendor", "invoices", "EQ", 0, "Proveedor · facturas previas = 0")]),
+  extra("r24", "Proveedor sin cuenta registrada", "Sin cuenta bancaria registrada no se paga.", "HOLD", "AGENT", 0,
+    [cond("vendor", "bank_account", "IS_NULL", null, "Proveedor · cuenta bancaria vacía")]),
+  extra("r6", "Facturas de Brasil sobre 3.000", "Frena facturas de Brasil de más de 3.000 dólares.", "HOLD", "HUMAN", 2,
+    [cond("invoice", "amount_usd", "GT", 3000, "Factura · monto en USD > 3.000"), cond("vendor", "country", "EQ", "BR", "Proveedor · país = BR")]),
+  extra("r25", "Factura vencida hace más de 60 días", "Si ya pasaron dos meses del vencimiento, frénala.", "HOLD", "AGENT", 1,
+    [cond("invoice", "days_overdue", "GT", 60, "Factura · días de atraso > 60")]),
+  extra("r26", "Lectura con baja confianza", "Si el agente no está seguro de lo que leyó, que me pregunte.", "ESCALATE", "HUMAN", 8,
+    [cond("invoice", "confidence", "LT", 0.8, "Factura · confianza de lectura < 0,8")]),
+  extra("r27", "Pago pequeño", "Hasta 200 dólares paga sin preguntar.", "ALLOW", "HUMAN", 19,
+    [cond("invoice", "amount_usd", "LTE", 200, "Factura · monto en USD <= 200")]),
+  extra("r28", "Moneda no habitual", "Si viene en una moneda rara, que lo vea alguien.", "ESCALATE", "AGENT", 0,
+    [cond("invoice", "currency", "NOT_IN", ["USD", "COP", "MXN", "BRL"], "Factura · moneda no está en USD, COP, MXN, BRL")]),
+  extra("r29", "Sin orden de compra", "Toda factura grande necesita orden de compra.", "ESCALATE", "HUMAN", 7,
+    [cond("po_check", "orden_encontrada", "EQ", false, "Cruce con la orden · orden encontrada = no")]),
+  extra("r30", "Monto mayor a la orden", "No pagues más de lo que dice la orden.", "HOLD", "HUMAN", 2,
+    [cond("po_check", "excede_orden", "EQ", true, "Cruce con la orden · excede la orden = sí")]),
+  extra("r31", "Orden de compra cerrada", "Una orden cerrada ya no admite pagos.", "HOLD", "HUMAN", 1,
+    [cond("purchase_order", "status", "EQ", "CLOSED", "Orden de compra · estado = cerrada")]),
+  extra("r32", "Presupuesto del mes agotado", "Si ya se gastó el presupuesto, frena.", "HOLD", "HUMAN", 0,
+    [cond("budget_status", "remaining_usd", "LTE", 0, "Presupuesto · saldo en USD <= 0")]),
+  extra("r33", "Presupuesto casi agotado", "Cuando quede menos del 10 por ciento, avísame.", "ESCALATE", "AGENT", 3,
+    [cond("budget_status", "remaining_pct", "LT", 10, "Presupuesto · saldo restante < 10 %")]),
+  extra("r34", "Compras recurrentes de oficina", "Los pagos de papelería con presupuesto disponible pasan solos.", "ALLOW", "AGENT", 4,
+    [cond("budget_status", "remaining_pct", "GTE", 30, "Presupuesto · saldo restante >= 30 %")]),
+  extra("r35", "Monto redondo sospechoso", "Montos redondos muy altos me dan desconfianza.", "ESCALATE", "HUMAN", 0,
+    [cond("invoice", "amount_usd", "GTE", 10000, "Factura · monto en USD >= 10.000")], { active: false }),
+  extra("r36", "Proveedor de prueba", "Regla de pruebas del piloto.", "ALLOW", "HUMAN", 0,
+    [cond("vendor", "tax_id", "EQ", "000000000", "Proveedor · NIT = 000000000")], { active: false }),
+];
+rules.push(...moreRules);
+
 export const proposals: ProposalView[] = [
   {
     id: "p1", status: "PENDING", created_at: "2026-10-17T22:05:00Z", evidence: [invoices[1]],

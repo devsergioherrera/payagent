@@ -1,24 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import { Bot, ChevronDown, User } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { RuleView } from "@/lib/api-types";
-import { dayTime } from "@/lib/format";
+import { shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { EFFECT } from "./effect-badge";
 import { OverridableNote, RuleSentence } from "./rule-sentence";
 
-function approvalLine(r: RuleView) {
-  const who = r.origin === "AGENT" ? "Propuesta por el agente" : `Escrita por ${r.proposed_by}`;
-  return `${who} · aprobada por ${r.approved_by}, ${dayTime(r.approved_at)}`;
-}
-
 export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => void }) {
+  const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { icon: EffectIcon, style } = EFFECT[rule.effect];
+  const OriginIcon = rule.origin === "AGENT" ? Bot : User;
 
   async function deactivate() {
     setBusy(true);
@@ -35,25 +35,41 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
   }
 
   return (
-    <li className={cn("flex items-start gap-4 p-4", !rule.active && "opacity-60")}>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <p className="text-sm font-medium">{rule.name}</p>
-          {!rule.active && <span className="text-xs text-muted-foreground">Desactivada</span>}
-        </div>
-        <p className="text-[13px] text-muted-foreground">“{rule.natural_language}”</p>
-        <RuleSentence rule={rule} />
-        <OverridableNote rule={rule} />
-        <p className="text-xs text-muted-foreground">
-          {approvalLine(rule)} · Se disparó {rule.times_fired} {rule.times_fired === 1 ? "vez" : "veces"}
+    <li className={cn("flex items-start gap-3 px-4 py-3", !rule.active && "opacity-60")}>
+      <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full", style)}>
+        <EffectIcon className="size-4" aria-label={EFFECT[rule.effect].label} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-1.5 text-left"
+        >
+          <span className="min-w-0 truncate text-sm font-medium">{rule.name}</span>
+          {!rule.active && <span className="shrink-0 text-xs text-muted-foreground">Desactivada</span>}
+          <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
+        </button>
+        <RuleSentence rule={rule} plainEffect className="mt-1" />
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+          <OriginIcon className="size-3.5" aria-label={rule.origin === "AGENT" ? "Propuesta por el agente" : "Escrita por una persona"} />
+          <span>aprobada por {rule.approved_by} · {shortDate(rule.approved_at)}</span>
+          <span aria-hidden>·</span>
+          <span>se disparó {rule.times_fired} {rule.times_fired === 1 ? "vez" : "veces"}</span>
         </p>
+        {open && (
+          <div className="mt-2 flex flex-col gap-1 rounded-lg bg-muted/40 px-3 py-2">
+            <p className="text-[13px] text-muted-foreground">“{rule.natural_language}”</p>
+            <OverridableNote rule={rule} />
+          </div>
+        )}
       </div>
       <Switch
         checked={rule.active}
         disabled={!rule.active}
         onCheckedChange={() => setConfirming(true)}
         aria-label={`Regla activa: ${rule.name}`}
-        className="mt-0.5"
+        className="mt-1"
       />
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent>

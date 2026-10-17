@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Check, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { RuleDraft } from "@/lib/api-types";
@@ -68,7 +68,8 @@ export function RuleComposer({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-4 sm:p-5">
+    <section className="rounded-2xl border bg-card p-4">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-brand" aria-hidden />Nueva regla</h2>
       <div className="rounded-xl border bg-background p-3 focus-within:ring-3 focus-within:ring-ring/30">
         <Textarea
           value={text}
@@ -77,7 +78,7 @@ export function RuleComposer({ onCreated }: { onCreated: () => void }) {
           placeholder="Ej.: no paguen más de 5 mil dólares sin que yo apruebe"
           rows={2}
           aria-label="Describe una regla"
-          className="min-h-14 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-12 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
         <div className="mt-2 flex justify-end">
           <Button onClick={translate} disabled={!text.trim() || busy} className="bg-brand text-brand-foreground hover:bg-brand/90">
@@ -87,7 +88,7 @@ export function RuleComposer({ onCreated }: { onCreated: () => void }) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-col items-start gap-1.5">
         {EXAMPLES.map((ex) => (
           <button
             key={ex}
@@ -107,9 +108,9 @@ export function RuleComposer({ onCreated }: { onCreated: () => void }) {
           <DraftPreview draft={draft}>
             <div className="flex gap-2">
               <Button onClick={confirm} disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand/90">
-                Confirmar regla
+                <Check />Confirmar regla
               </Button>
-              <Button variant="ghost" onClick={() => setDraft(null)} disabled={saving}>Descartar</Button>
+              <Button variant="ghost" onClick={() => setDraft(null)} disabled={saving}><X />Descartar</Button>
             </div>
           </DraftPreview>
         </div>
