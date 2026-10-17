@@ -14,7 +14,7 @@ const LINKS = [
   { href: "/", label: "Mesa" },
   { href: "/facturas", label: "Facturas" },
   { href: "/reglas", label: "Reglas" },
-  { href: "/proveedores", label: "Proveedores" },
+  { href: "/proveedores", label: "Directorio" },
   { href: "/costos", label: "Costos" },
 ];
 

@@ -305,3 +305,7 @@ def test_vendors_page_and_invoice_pagination(client: TestClient, directory):
     assert res.headers["x-total-count"] == "2" and len(res.json()) == 1
     rest = client.get("/invoices", params={"vendor_id": directory["vendor"], "limit": 1, "offset": 1}).json()
     assert len(rest) == 1 and rest[0]["id"] != res.json()[0]["id"]
+    one = client.get(f"/vendors/{directory['vendor']}").json()
+    assert one["tax_id"] == f"test-{tag}" and len(one["purchase_orders"]) == 3
+    assert client.get(f"/vendors/{uuid.uuid4()}").status_code == 404
+    assert client.get("/vendors/not-a-uuid").status_code == 404

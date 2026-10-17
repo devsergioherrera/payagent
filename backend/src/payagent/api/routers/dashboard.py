@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from payagent.adapters.postgres.queries import ApiQueries
+from payagent.adapters.postgres.queries import ApiQueries, NotFound
 from payagent.api.deps import get_queries
 from payagent.api.schemas import Costs, Page, Summary, VendorView
 from payagent.config import settings
@@ -20,6 +20,14 @@ def vendors(
     queries: ApiQueries = Depends(get_queries),
 ) -> Page[VendorView]:
     return queries.vendors(q, status or None, country or None, limit, offset)
+
+
+@router.get("/vendors/{vendor_id}")
+def vendor(vendor_id: str, queries: ApiQueries = Depends(get_queries)) -> VendorView:
+    try:
+        return queries.vendor(vendor_id)
+    except NotFound:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado") from None
 
 
 @router.get("/costs")

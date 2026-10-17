@@ -17,6 +17,7 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
   POST /proposals/run         -> ProposalRun                      (409 if one is already running)
   POST /proposals/{id}/accept -> RuleView      POST /proposals/{id}/reject -> ProposalView
   GET  /vendors?q=&status=&country=&limit=50&offset=0   -> Page[VendorView]
+  GET  /vendors/{id}          -> VendorView
   GET  /purchase-orders?q=&vendor_id=&status=&with_balance=&limit=50&offset=0   -> Page[PurchaseOrderRow]
   GET  /purchase-orders/{po_number}   -> PurchaseOrderDetail
   GET  /costs                 -> Costs

@@ -1,7 +1,7 @@
 // The only way screens talk to the backend. With NEXT_PUBLIC_USE_MOCKS=1 every call returns lib/mocks.ts data.
 import type {
   ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
-  ProposalView, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
+  Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
 } from "./api-types";
 import * as mocks from "./mocks";
 
@@ -33,7 +33,16 @@ const json = (body: unknown): RequestInit => ({
 
 const mock = <T,>(value: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(value)), 150));
 
-export interface InvoiceFilters { outcome?: Outcome; status?: string; q?: string }
+export interface InvoiceFilters {
+  outcome?: Outcome; status?: string; q?: string; vendor_id?: string; limit?: number; offset?: number;
+}
+export interface VendorFilters { q?: string; status?: string; country?: string; limit?: number; offset?: number }
+export interface PurchaseOrderFilters {
+  q?: string; vendor_id?: string; status?: string; with_balance?: boolean; limit?: number; offset?: number;
+}
+
+const query = (f: object) =>
+  new URLSearchParams(Object.entries(f).filter(([, v]) => v !== undefined && v !== "" && v !== false).map(([k, v]) => [k, String(v)]));
 
 export const api = {
   login: (password: string) => (USE_MOCKS ? mock(undefined) : request<void>("/auth/login", json({ password }))),
@@ -42,9 +51,8 @@ export const api = {
   summary: () => (USE_MOCKS ? mock<Summary>(mocks.summary) : request<Summary>("/summary")),
 
   invoices: (f: InvoiceFilters = {}) => {
-    if (USE_MOCKS) return mock(mocks.invoices.filter((i) => !f.outcome || i.outcome === f.outcome));
-    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
-    return request<InvoiceSummary[]>(`/invoices?${qs}`);
+    if (USE_MOCKS) return mock(mocks.invoicesFor(f));
+    return request<InvoiceSummary[]>(`/invoices?${query(f)}`);
   },
   invoice: (id: string) =>
     USE_MOCKS ? mock<InvoiceDetail>(mocks.invoiceDetail) : request<InvoiceDetail>(`/invoices/${id}`),
@@ -82,7 +90,20 @@ export const api = {
       ? mock<ProposalView>({ ...mocks.proposals[0], status: "REJECTED" })
       : request<ProposalView>(`/proposals/${id}/reject`, { method: "POST" }),
 
-  vendors: () => (USE_MOCKS ? mock<VendorView[]>(mocks.vendors) : request<VendorView[]>("/vendors")),
+  vendors: (f: VendorFilters = {}) =>
+    USE_MOCKS ? mock<Page<VendorView>>(mocks.vendorPage(f)) : request<Page<VendorView>>(`/vendors?${query(f)}`),
+  vendor: (id: string) =>
+    USE_MOCKS
+      ? mock<VendorView>(mocks.vendors.find((v) => v.id === id) ?? mocks.vendors[0])
+      : request<VendorView>(`/vendors/${id}`),
+  purchaseOrders: (f: PurchaseOrderFilters = {}) =>
+    USE_MOCKS
+      ? mock<Page<PurchaseOrderRow>>(mocks.purchaseOrderPage(f))
+      : request<Page<PurchaseOrderRow>>(`/purchase-orders?${query(f)}`),
+  purchaseOrder: (poNumber: string) =>
+    USE_MOCKS
+      ? mock<PurchaseOrderDetail>(mocks.purchaseOrderDetail(poNumber))
+      : request<PurchaseOrderDetail>(`/purchase-orders/${encodeURIComponent(poNumber)}`),
   costs: () => (USE_MOCKS ? mock<Costs>(mocks.costs) : request<Costs>("/costs")),
 
   chat: (message: string, file?: File | null) => {

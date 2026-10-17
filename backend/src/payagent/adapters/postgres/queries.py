@@ -428,6 +428,12 @@ class ApiQueries:
         items = self._vendor_views(clause, [*params, limit, offset], "order by v.name, v.id limit %s offset %s")
         return Page(items=items, total=total)
 
+    def vendor(self, vendor_id: str) -> VendorView:
+        views = self.vendors_by_id([vendor_id])
+        if not views:
+            raise NotFound(vendor_id)
+        return views[0]
+
     # ---- purchase orders ------------------------------------------------------------------------------------
 
     _PO_FROM = """

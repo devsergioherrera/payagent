@@ -1,6 +1,7 @@
 // Example data with the exact API shapes. Screens build against this until the API is live.
 import type {
-  Costs, InvoiceDetail, InvoiceSummary, ProposalView, RuleView, Summary, VendorView,
+  Costs, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView, Summary,
+  VendorView,
 } from "./api-types";
 
 export const summary: Summary = {
@@ -86,15 +87,11 @@ export const proposals: ProposalView[] = [
   },
 ];
 
-export const vendors: VendorView[] = [
+const baseVendors: VendorView[] = [
   {
     id: "10000000-0000-0000-0000-000000000002", name: "Servicios Cloud Andinos S.A.S.", tax_id: "9015552221",
     country: "CO", currency: "USD", bank_rail: "WIRE", bank_account: "BCOL55522201", status: "ALLOWED",
-    purchase_orders: [
-      { po_number: "PO-1002", amount: 4500, currency: "USD", status: "OPEN", description: "Hosting y soporte, octubre" },
-      { po_number: "PO-1006", amount: 12000, currency: "USD", status: "OPEN", description: "Migración de infraestructura" },
-    ],
-    invoices: 3, paid_usd: 4500,
+    purchase_orders: [], invoices: 3, paid_usd: 4500,
   },
   {
     id: "10000000-0000-0000-0000-000000000005", name: "Distribuciones Orión S.A.S.", tax_id: "9009998883",
@@ -102,6 +99,92 @@ export const vendors: VendorView[] = [
     purchase_orders: [], invoices: 1, paid_usd: 0,
   },
 ];
+
+const EXTRA: Array<[string, VendorView["country"]]> = [
+  ["Northwind Software Inc.", "US"], ["Logística del Bajío S.A. de C.V.", "MX"], ["Tecnologia Paulista Ltda.", "BR"],
+  ["Comercializadora Aurora S.A.S.", "CO"], ["Grupo Industrial Sonora S.A.", "MX"], ["Atlas Office Supplies LLC", "US"],
+  ["Construtora Horizonte Ltda.", "BR"], ["Papelería Cafetera S.A.S.", "CO"], ["Cobalt Analytics Inc.", "US"],
+  ["Transportes Pacífico S.A.S.", "CO"], ["Manufacturas del Norte S.A. de C.V.", "MX"], ["Soluções Digitais do Sul Ltda.", "BR"],
+];
+const COUNTRY = {
+  CO: { currency: "COP", rail: "BRE_B", fx: 0.00025 }, MX: { currency: "MXN", rail: "SPEI", fx: 0.055 },
+  BR: { currency: "BRL", rail: "PIX", fx: 0.18 }, US: { currency: "USD", rail: "ACH", fx: 1 },
+} as const;
+const FX: Record<string, number> = { COP: 0.00025, MXN: 0.055, BRL: 0.18, USD: 1 };
+const DESCRIPTIONS = [
+  "Hosting y soporte", "Migración de infraestructura", "Licencias de software", "Mantenimiento de flota",
+  "Material de oficina", "Servicios de consultoría", "Equipos de cómputo", "Transporte de mercancía",
+  "Auditoría anual", "Campaña de mercadeo", "Obra civil, fase 2", "Suministro de insumos",
+];
+
+export const vendors: VendorView[] = [
+  ...baseVendors,
+  ...EXTRA.map(([name, country], n): VendorView => {
+    const c = COUNTRY[country];
+    return {
+      id: `10000000-0000-0000-0000-0000000001${String(n).padStart(2, "0")}`, name, country, currency: c.currency,
+      tax_id: String(900100200 + n * 7919), bank_rail: c.rail, bank_account: `${c.rail.slice(0, 3)}${5500000 + n * 3571}`,
+      status: n % 7 === 3 ? "BLOCKED" : "ALLOWED", purchase_orders: [], invoices: 2 + (n % 5), paid_usd: n % 7 === 3 ? 0 : 1200 * (n + 2),
+    };
+  }),
+];
+
+export const purchaseOrders: PurchaseOrderRow[] = Array.from({ length: 64 }, (_, n): PurchaseOrderRow => {
+  const v = vendors[n % vendors.length];
+  const amount = v.currency === "COP" ? (4 + (n % 9)) * 2_500_000 : (3 + (n % 8)) * 1500;
+  const amountUsd = Math.round(amount * FX[v.currency] * 100) / 100;
+  const closed = n % 6 === 5;
+  const share = closed ? 1 : [0, 0.25, 0.5, 0.8, 1.1][n % 5];
+  const invoiced = Math.round(amountUsd * share * 100) / 100;
+  return {
+    po_number: `PO-${1001 + n}`, vendor_id: v.id, vendor_name: v.name,
+    description: `${DESCRIPTIONS[n % DESCRIPTIONS.length]}, ${["octubre", "septiembre", "agosto"][n % 3]}`,
+    amount, currency: v.currency, amount_usd: amountUsd, invoiced_usd: invoiced,
+    remaining_usd: Math.round((amountUsd - invoiced) * 100) / 100, invoices: share === 0 ? 0 : 1 + (n % 3),
+    status: closed ? "CLOSED" : "OPEN",
+    last_invoice_at: share === 0 ? null : new Date(Date.UTC(2026, 9, 17, 14) - n * 86_400_000 * 0.7).toISOString(),
+  };
+}).sort((a, b) => (b.last_invoice_at ?? "").localeCompare(a.last_invoice_at ?? ""));
+
+const slice = <T,>(all: T[], f: { limit?: number; offset?: number }): Page<T> => ({
+  items: all.slice(f.offset ?? 0, (f.offset ?? 0) + (f.limit ?? 50)), total: all.length,
+});
+const has = (text: string | null | undefined, q: string) => (text ?? "").toLowerCase().includes(q.toLowerCase());
+
+export function vendorPage(f: { q?: string; status?: string; country?: string; limit?: number; offset?: number }) {
+  const all = vendors.filter(
+    (v) => (!f.q || has(v.name, f.q) || has(v.tax_id, f.q)) && (!f.status || v.status === f.status) && (!f.country || v.country === f.country),
+  );
+  return slice(all, f);
+}
+
+export function purchaseOrderPage(f: {
+  q?: string; vendor_id?: string; status?: string; with_balance?: boolean; limit?: number; offset?: number;
+}) {
+  const all = purchaseOrders.filter(
+    (p) =>
+      (!f.q || has(p.po_number, f.q) || has(p.description, f.q) || has(p.vendor_name, f.q)) &&
+      (!f.vendor_id || p.vendor_id === f.vendor_id) && (!f.status || p.status === f.status) &&
+      (!f.with_balance || (p.status === "OPEN" && p.remaining_usd > 0)),
+  );
+  return slice(all, f);
+}
+
+export function invoicesFor(f: { outcome?: string; vendor_id?: string; limit?: number; offset?: number }) {
+  let all = invoices.filter((i) => !f.outcome || i.outcome === f.outcome);
+  if (f.vendor_id) {
+    const v = vendors.find((x) => x.id === f.vendor_id);
+    const own = all.filter((i) => i.vendor_name === v?.name);
+    // Generated vendors have no matching sample invoice: rotate a few so the detail pane has content.
+    all = own.length ? own : all.slice(Math.max(0, vendors.findIndex((x) => x.id === f.vendor_id)) % 4).slice(0, 3);
+  }
+  return all.slice(f.offset ?? 0, (f.offset ?? 0) + (f.limit ?? 200));
+}
+
+export function purchaseOrderDetail(poNumber: string): PurchaseOrderDetail {
+  const po = purchaseOrders.find((p) => p.po_number === poNumber) ?? purchaseOrders[0];
+  return { po, invoices: po.invoices ? invoices.slice(1, 1 + po.invoices).map((i) => ({ ...i, vendor_name: po.vendor_name })) : [] };
+}
 
 export const costs: Costs = {
   today_usd: 0.0214, month_usd: 0.0214, operations: 19, input_tokens: 41200, output_tokens: 6100,
