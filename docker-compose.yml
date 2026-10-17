@@ -1,0 +1,40 @@
+# Same file locally and on the server. The only difference is DOMAIN in .env:
+# empty -> http://localhost ; set (e.g. 164.92.10.5.sslip.io) -> HTTPS with an automatic certificate.
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    STORAGE_DIR: /app/storage
+    INBOX_DIR: /app/inbox
+  volumes:
+    - ./storage:/app/storage
+    - ./inbox:/app/inbox
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *backend
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "payagent.worker.main"]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    environment:
+      SITE_ADDRESS: ${DOMAIN:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api, frontend]
+    restart: unless-stopped
+
+volumes:
+  caddy_data:

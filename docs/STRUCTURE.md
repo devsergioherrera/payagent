@@ -58,7 +58,7 @@ hackathon/
 │   ├── migrations/
 │   │   └── 001_schema.sql          # schema from SPEC §7
 │   └── seed/
-│       └── 001_nortech.sql         # company, areas, budgets, vendors, POs, fx_rate, 15 rules
+│       └── 001_facturaya.sql         # company, areas, budgets, vendors, POs, fx_rate, 15 rules
 │
 ├── frontend/                       # Next.js (App Router) + shadcn/ui
 │   ├── Dockerfile                  # standalone output
@@ -102,8 +102,7 @@ hackathon/
 ├── docs/
 │   ├── SPEC.md
 │   └── STRUCTURE.md
-├── docker-compose.yml              # api, worker, frontend (local dev)
-├── docker-compose.prod.yml         # override: adds caddy, restart policies, no exposed ports
+├── docker-compose.yml              # api, worker, frontend, caddy (same file local and server)
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -131,20 +130,20 @@ hackathon/
                               Gmail          Supabase Postgres (DATABASE_URL)       Gemini API
 ```
 
-**Target: one DigitalOcean Droplet running `docker compose`** (Ubuntu + Docker 1-Click image, 2 GB RAM, ~$12/month; free with GitHub Student Pack credits). Reasons it beats splitting across Vercel/Render:
+**Target: one AWS EC2 instance running `docker compose`** (`payagent`, c7i-flex.large: 2 vCPU, 4 GB RAM + 2 GB swap, Ubuntu 24.04, us-east-1, Elastic IP `52.207.93.205`; paid by AWS free-plan credits). Reasons it beats splitting across Vercel/Render:
 
 1. The worker is a long-running process (IMAP every 10 s, cron). Serverless platforms kill it.
 2. WebSockets need a persistent API process.
-3. The spec requires `docker compose up` to bring up `api`, `worker` and `frontend`. On a VM, production is the same command plus an override file.
+3. The spec requires `docker compose up` to bring up `api`, `worker` and `frontend`. On a VM, production is the same command with `DOMAIN` set.
 4. Caddy puts everything under one domain, so there is no CORS and the frontend calls relative `/api` and `/ws` URLs. It also gets the TLS certificate automatically.
 
 **Domain:** a free subdomain is enough for the demo (`<ip>.sslip.io` or DuckDNS). Caddy issues the certificate for it.
 
 **Steps:**
-1. Create the VM, open ports 80 and 443, run `deploy/bootstrap-vm.sh`.
-2. Copy `.env` to the VM (never committed).
-3. `python scripts/migrate.py` once against Supabase.
-4. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`.
-5. Redeploy manually: `ssh vm 'cd hackathon && git pull && <step 4>'`. No CD pipeline (time limit).
+1. SSH in: `ssh -i ~/.ssh/payagent.pem ubuntu@52.207.93.205` (port 22 is open only to the admin IP in security group `payagent-sg`).
+2. `curl -fsSL https://raw.githubusercontent.com/devsergioherrera/payagent/main/deploy/bootstrap-vm.sh | sudo bash` (installs Docker, opens 80/443, clones to `/opt/payagent`).
+3. Fill `/opt/payagent/.env` and set `DOMAIN=52.207.93.205.sslip.io`.
+4. `python scripts/migrate.py` once against Supabase.
+5. `docker compose up -d --build`. Redeploy: `git pull && docker compose up -d --build`. No CD pipeline (time limit).
 
-**`.env.example` keys:** `DATABASE_URL`, `GEMINI_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `APPROVER_EMAIL`, `PUBLIC_BASE_URL` (for the links in emails), `DOMAIN` (for Caddy).
+**`.env.example` keys:** `DATABASE_URL`, `GEMINI_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `APPROVER_EMAIL`, `DOMAIN` (the only value that changes on deploy: Caddy uses it and email links become `https://$DOMAIN`), optional `PUBLIC_BASE_URL` override (e.g. a tunnel URL). `docker-compose.yml` sets `STORAGE_DIR=/app/storage` and `INBOX_DIR=/app/inbox` for the containers.

@@ -1,0 +1,12 @@
+# SITE_ADDRESS comes from DOMAIN in docker-compose.yml: :80 locally, the domain (auto TLS) on the server.
+{$SITE_ADDRESS} {
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+	handle /ws/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
