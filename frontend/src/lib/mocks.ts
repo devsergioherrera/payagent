@@ -1,6 +1,6 @@
 // Example data with the exact API shapes. Screens build against this until the API is live.
 import type {
-  Costs, InvoiceDetail, InvoiceSummary, ProposalView, RuleView, Summary, VendorView,
+  Costs, Hit, InvoiceDetail, InvoiceSummary, ProposalView, RuleView, Summary, VendorView,
 } from "./api-types";
 
 export const summary: Summary = {
@@ -20,10 +20,16 @@ export const invoices: InvoiceSummary[] = [
   inv({ id: "i-2043", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2043", amount: 12400, amount_usd: 12400, outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Umbral de aprobación humana" }),
   inv({ id: "i-2042", vendor_name: "Logística del Bajío S.A. de C.V.", invoice_number: "A-3391", amount: 58000, currency: "MXN", amount_usd: 3190, source: "UPLOAD" }),
   inv({ id: "i-2041", vendor_name: "Tecnologia Paulista Ltda.", invoice_number: "NF-7781", amount: 15000, currency: "BRL", amount_usd: 2700 }),
-  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "PENDING_HUMAN", headline: "Factura duplicada" }),
+  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "PENDING_HUMAN", headline: "Presupuesto del mes" }),
   inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, outcome: "HOLD", decision_status: "RESOLVED", headline: "Proveedor bloqueado", decided_by: "HUMAN" }),
   inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT" }),
 ];
+
+type HitRow = [string, string, Hit["effect"], Hit["result"], Hit["observed"], Hit["threshold"]];
+
+const hit = ([rule_id, rule_name, effect, result, observed, threshold]: HitRow, overridden_by: string | null = null): Hit => ({
+  rule_id, rule_name, effect, result, observed, threshold, overridden_by,
+});
 
 export const invoiceDetail: InvoiceDetail = {
   summary: invoices[2],
@@ -34,24 +40,90 @@ export const invoiceDetail: InvoiceDetail = {
     due_date: "2026-10-30", po_number: "PO-1006", bank_account: "BCOL55522201", confidence: 0.97,
   },
   explanation:
-    "La factura de Servicios Cloud Andinos por USD 12,400 supera el umbral de aprobación humana de USD 10,000. El proveedor, la cuenta bancaria y la orden de compra PO-1006 cumplen. Necesita tu aprobación.",
+    "La factura de Servicios Cloud Andinos por USD 12.400 supera el umbral de aprobación humana de USD 10.000. El proveedor, la cuenta bancaria y la orden de compra PO-1006 cumplen. Necesita tu aprobación antes de pagarse.",
   hits: [
-    { rule_id: "r6", rule_name: "Umbral de aprobación humana", effect: "ESCALATE", result: "FIRED", observed: { "invoice.amount_usd": 12400 }, threshold: { "invoice.amount_usd": 10000 }, overridden_by: null },
-    { rule_id: "r5", rule_name: "Límite por pago", effect: "ESCALATE", result: "FIRED", observed: { "invoice.amount_usd": 12400 }, threshold: { "invoice.amount_usd": 5000 }, overridden_by: null },
-    { rule_id: "r2", rule_name: "Proveedor bloqueado", effect: "HOLD", result: "PASSED", observed: { "vendor.status": "ALLOWED" }, threshold: { "vendor.status": "BLOCKED" }, overridden_by: null },
-    { rule_id: "r3", rule_name: "Cuenta bancaria distinta", effect: "ESCALATE", result: "PASSED", observed: { "invoice.bank_account": "BCOL55522201" }, threshold: { "vendor.bank_account": "BCOL55522201" }, overridden_by: null },
-    { rule_id: "r8", rule_name: "Factura duplicada", effect: "HOLD", result: "PASSED", observed: { "invoice_checks.duplicada": false }, threshold: { "invoice_checks.duplicada": true }, overridden_by: null },
+    hit(["r6", "Umbral de aprobación humana", "ESCALATE", "FIRED", { "invoice.amount_usd": 12400 }, { "invoice.amount_usd": 10000 }]),
+    hit(["r5", "Límite por pago", "ESCALATE", "FIRED", { "invoice.amount_usd": 12400 }, { "invoice.amount_usd": 5000 }]),
+    hit(["r1", "Proveedor no registrado", "ESCALATE", "PASSED", { "invoice.vendor_id": "10000000-0000-0000-0000-000000000002" }, {}]),
+    hit(["r2", "Proveedor bloqueado", "HOLD", "PASSED", { "vendor.status": "ALLOWED" }, { "vendor.status": "BLOCKED" }]),
+    hit(["r3", "Cuenta bancaria distinta", "ESCALATE", "PASSED", { "invoice.bank_account": "BCOL55522201" }, { "vendor.bank_account": "BCOL55522201" }]),
+    hit(["r4", "NIT distinto", "ESCALATE", "PASSED", { "invoice.vendor_tax_id": "9015552221" }, { "vendor.tax_id": "9015552221" }]),
+    hit(["r7", "Presupuesto del mes", "HOLD", "PASSED", { "budget_status.saldo_despues_usd": 31600 }, { "budget_status.saldo_despues_usd": 0 }]),
+    hit(["r8", "Duplicado exacto", "HOLD", "PASSED", { "invoice_checks.duplicada": false }, { "invoice_checks.duplicada": true }]),
+    hit(["r9", "Posible duplicado (30 días)", "ESCALATE", "PASSED", { "invoice_checks.similares_30d": 0 }, { "invoice_checks.similares_30d": 0 }]),
+    hit(["r10", "Sin orden de compra válida", "ESCALATE", "PASSED", { "po_check.orden_encontrada": true }, { "po_check.orden_encontrada": false }]),
+    hit(["r11", "Fuera de tolerancia de la orden", "ESCALATE", "PASSED", { "po_check.desviacion_pct": 3.3 }, { "po_check.desviacion_pct": 5 }]),
+    hit(["r12", "Moneda distinta a la orden", "ESCALATE", "PASSED", { "po_check.moneda_coincide": true }, { "po_check.moneda_coincide": false }]),
+    hit(["r13", "Faltan datos", "ESCALATE", "PASSED", { "invoice_checks.campos_faltantes": 0 }, { "invoice_checks.campos_faltantes": 0 }]),
+    hit(["r14", "Fecha fuera de rango", "ESCALATE", "PASSED", { "invoice_checks.dias_emision": 1 }, { "invoice_checks.dias_emision": [0, 90] }]),
+    hit(["r15", "Factura vencida", "ESCALATE", "PASSED", { "invoice_checks.dias_para_vencer": 13 }, { "invoice_checks.dias_para_vencer": 0 }]),
   ],
   approval: null,
   timeline: [
-    { label: "Factura recibida", detail: "PDF por correo", at: "2026-10-17T14:12:00Z" },
-    { label: "Datos extraídos", detail: "Confianza de lectura 0.97", at: "2026-10-17T14:12:04Z" },
-    { label: "Reglas evaluadas", detail: "15 reglas, 2 se dispararon", at: "2026-10-17T14:12:05Z" },
-    { label: "Decisión: Escalada", detail: "Notificación enviada al aprobador", at: "2026-10-17T14:12:07Z" },
+    { label: "Factura recibida", detail: "PDF por correo de cuentas@serviciosandinos.co", at: "2026-10-17T14:12:00Z" },
+    { label: "Datos extraídos", detail: null, at: "2026-10-17T14:12:04Z" },
+    { label: "Decisión: Escalada", detail: "Umbral de aprobación humana", at: "2026-10-17T14:12:05Z" },
+    { label: "Notificación enviada", detail: "sergio@facturaya.co", at: "2026-10-17T14:12:07Z" },
   ],
   cost: { cost_usd: 0.0011, duration_ms: 2300, input_tokens: 2140, output_tokens: 310 },
-  file_url: "/api/invoices/i-2043/file",
+  file_url: "/mock/factura-2043.svg",
   error: null,
+};
+
+// Hard case: unregistered vendor, unreadable amount and due date, and a budget hold.
+export const invoiceDetailHold: InvoiceDetail = {
+  summary: { ...invoices[5], amount_usd: null, headline: "Presupuesto del mes" },
+  vendor_id: null,
+  extracted: {
+    vendor_name_raw: "Comercializadora Aurora S.A.S.", vendor_tax_id: "9007771114", invoice_number: "FV-2031",
+    amount: 4800000, currency: "COP", fx_rate: null, amount_usd: null, issue_date: "2026-10-15",
+    due_date: null, po_number: null, bank_account: "0012345678901", confidence: 0.71,
+  },
+  explanation:
+    "El agente frenó el pago porque el presupuesto del mes no alcanza para cubrir esta factura: quedaría USD 420 por debajo de cero. Además no se pudo leer la fecha de vencimiento ni el monto en dólares, y el proveedor no está registrado. Puedes liberarla si autorizas el gasto.",
+  hits: [
+    hit(["r7", "Presupuesto del mes", "HOLD", "FIRED", { "budget_status.saldo_despues_usd": -420 }, { "budget_status.saldo_despues_usd": 0 }]),
+    hit(["r1", "Proveedor no registrado", "ESCALATE", "FIRED", { "invoice.vendor_id": null }, {}]),
+    hit(["r13", "Faltan datos", "ESCALATE", "FIRED", { "invoice_checks.campos_faltantes": 3 }, { "invoice_checks.campos_faltantes": 0 }]),
+    hit(["r5", "Límite por pago", "ESCALATE", "MISSING_DATA", { "invoice.amount_usd": null }, { "invoice.amount_usd": 5000 }]),
+    hit(["r6", "Umbral de aprobación humana", "ESCALATE", "MISSING_DATA", { "invoice.amount_usd": null }, { "invoice.amount_usd": 10000 }]),
+    hit(["r15", "Factura vencida", "ESCALATE", "MISSING_DATA", { "invoice_checks.dias_para_vencer": null }, { "invoice_checks.dias_para_vencer": 0 }]),
+    hit(["r9", "Posible duplicado (30 días)", "ESCALATE", "OVERRIDDEN", { "invoice_checks.similares_30d": 1 }, { "invoice_checks.similares_30d": 0 }], "Pagos recurrentes de Aurora"),
+    hit(["r2", "Proveedor bloqueado", "HOLD", "NOT_APPLICABLE", { "vendor.status": null }, { "vendor.status": "BLOCKED" }]),
+    hit(["r3", "Cuenta bancaria distinta", "ESCALATE", "NOT_APPLICABLE", { "invoice.bank_account": "0012345678901" }, { "vendor.bank_account": null }]),
+    hit(["r4", "NIT distinto", "ESCALATE", "NOT_APPLICABLE", { "invoice.vendor_tax_id": "9007771114" }, { "vendor.tax_id": null }]),
+    hit(["r10", "Sin orden de compra válida", "ESCALATE", "NOT_APPLICABLE", { "po_check.orden_encontrada": null }, { "po_check.orden_encontrada": false }]),
+    hit(["r11", "Fuera de tolerancia de la orden", "ESCALATE", "NOT_APPLICABLE", { "po_check.desviacion_pct": null }, { "po_check.desviacion_pct": 5 }]),
+    hit(["r8", "Duplicado exacto", "HOLD", "PASSED", { "invoice_checks.duplicada": false }, { "invoice_checks.duplicada": true }]),
+    hit(["r12", "Moneda distinta a la orden", "ESCALATE", "PASSED", { "po_check.moneda_coincide": true }, { "po_check.moneda_coincide": false }]),
+    hit(["r14", "Fecha fuera de rango", "ESCALATE", "PASSED", { "invoice_checks.dias_emision": 2 }, { "invoice_checks.dias_emision": [0, 90] }]),
+  ],
+  approval: null,
+  timeline: [
+    { label: "Factura recibida", detail: "Carga manual", at: "2026-10-17T15:40:00Z" },
+    { label: "Datos extraídos", detail: null, at: "2026-10-17T15:40:05Z" },
+    { label: "Decisión: Frenada", detail: "Presupuesto del mes", at: "2026-10-17T15:40:07Z" },
+    { label: "Notificación enviada", detail: "sergio@facturaya.co", at: "2026-10-17T15:40:09Z" },
+  ],
+  cost: { cost_usd: 0.0018, duration_ms: 3900, input_tokens: 3010, output_tokens: 420 },
+  file_url: "/mock/factura-2040.txt",
+  error: null,
+};
+
+// Same case once the owner released it: shows the resolved state.
+export const invoiceDetailResolved: InvoiceDetail = {
+  ...invoiceDetailHold,
+  summary: { ...invoices[6], vendor_name: "Comercializadora Aurora S.A.S.", headline: "Presupuesto del mes" },
+  approval: { verdict: "APPROVED", note: "Gasto autorizado por cierre de trimestre", approver: "Sergio", created_at: "2026-10-17T22:10:00Z" },
+  timeline: [
+    ...invoiceDetailHold.timeline,
+    { label: "Resolución humana: aprobada", detail: "Sergio · Gasto autorizado por cierre de trimestre", at: "2026-10-17T22:10:00Z" },
+  ],
+};
+
+export const invoiceDetails: Record<string, InvoiceDetail> = {
+  "i-2040": invoiceDetailHold,
+  "i-2039": invoiceDetailResolved,
 };
 
 export const rules: RuleView[] = [

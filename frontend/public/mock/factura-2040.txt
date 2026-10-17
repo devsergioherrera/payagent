@@ -1,0 +1,11 @@
+COMERCIALIZADORA AURORA S.A.S.
+Factura de venta FV-2031
+
+Fecha de emision: 2026-10-15
+Vencimiento: (sin fecha)
+
+Concepto                         Valor (COP)
+Suministros de oficina         4.800.000,00
+
+Total a pagar: COP 4.800.000,00
+Cuenta: 0012345678901
