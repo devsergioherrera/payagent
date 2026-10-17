@@ -11,6 +11,7 @@ from payagent.adapters.postgres import (
 )
 from payagent.app.draft_rule import RuleDrafter
 from payagent.app.pipeline import AgentPipeline
+from payagent.adapters.postgres.vendors import search_vendors
 from payagent.config import settings
 
 
@@ -32,4 +33,5 @@ def build_drafter() -> RuleDrafter:
         catalog=PostgresRuleCatalog(),
         meter=PostgresUsageMeter(),
         operations=PostgresOperations(),
+        find_vendors=search_vendors,
     )

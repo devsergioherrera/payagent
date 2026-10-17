@@ -1,6 +1,7 @@
 """Natural language -> structured rule (V10). The LLM only drafts; a human confirms with POST /rules."""
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -40,7 +41,7 @@ Rules of thumb:
 - "más de" is GT, "al menos" is GTE, "menos de" is LT, "no más de" is LTE.
 - A condition compares a column with a literal value, or with another column (value_source + value_column).
 - Tax ids and bank accounts are stored normalized: letters and digits only, no dots, dashes or spaces.
-- To name a vendor, filter by its tax id when you know it (use the vendor source), otherwise by name.
+- To name a vendor, call buscar_proveedor first and filter by its exact tax_id (vendor.tax_id), never by name.
 - Dates are YYYY-MM-DD. Percentages are plain numbers (5 means 5%).
 - name: a short Spanish title. natural_language: the user's request, cleaned up, in Spanish.
 - If the request cannot be expressed with the registered sources and columns, do NOT call redactar_regla: \
@@ -63,6 +64,15 @@ TOOLS = types.Tool(
         types.FunctionDeclaration(
             name="listar_fuentes",
             description="List the data sources a rule can use, with name, label and description.",
+        ),
+        types.FunctionDeclaration(
+            name="buscar_proveedor",
+            description="Find registered vendors by part of their name or tax id. Returns name, tax_id, country.",
+            parameters={
+                "type": "object",
+                "properties": {"texto": {"type": "string", "description": "Part of the vendor name or tax id."}},
+                "required": ["texto"],
+            },
         ),
         types.FunctionDeclaration(
             name="describir_fuente",
@@ -162,6 +172,7 @@ class RuleDrafter:
     meter: UsageMeter
     operations: Operations
     model: str = "gemini-3.8-flash"
+    find_vendors: Callable[[str], list[dict[str, str]]] = lambda _text: []
 
     def draft(self, text: str) -> DraftResponse:
         op_id = self.operations.start("RULE_DRAFT")
@@ -216,6 +227,9 @@ class RuleDrafter:
         if name == "listar_fuentes":
             return {"fuentes": [{"name": s.name, "label": s.label, "description": s.description}
                                 for s in self.catalog.list_sources()]}
+        if name == "buscar_proveedor":
+            found = self.find_vendors(str(args.get("texto", "")))
+            return {"proveedores": found} if found else {"error": "no registered vendor matches; ask the user"}
         if name == "describir_fuente":
             try:
                 cols = self.catalog.describe_source(str(args.get("nombre", "")))
@@ -233,6 +247,8 @@ class RuleDrafter:
         overridable = args.get("overridable")
         if not isinstance(overridable, bool):
             raise RuleError("overridable must be true or false")
+        if effect is Effect.HOLD:
+            overridable = False  # nothing may cancel a HOLD
         if effect is Effect.ALLOW and not overridable:
             raise RuleError("an ALLOW rule must have overridable = true")
         raw_conditions = args.get("conditions") or []
