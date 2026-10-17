@@ -1,23 +1,14 @@
-import { match } from "@formatjs/intl-localematcher";
-import Negotiator from "negotiator";
 import { NextResponse, type NextRequest } from "next/server";
-import { defaultLocale, locales } from "@/i18n/config";
 
-function getLocale(request: NextRequest): string {
-  const headers = Object.fromEntries(request.headers);
-  const languages = new Negotiator({ headers }).languages([...locales]);
-  return match(languages, [...locales], defaultLocale);
-}
+// The API validates the session; this only keeps signed-out visitors on /login.
+export const SESSION_COOKIE = "fy_session";
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const hasLocale = locales.some(
-    (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`),
-  );
-  if (hasLocale) return;
-
-  request.nextUrl.pathname = `/${getLocale(request)}${pathname}`;
-  return NextResponse.redirect(request.nextUrl);
+  const signedIn = request.cookies.has(SESSION_COOKIE) || process.env.NEXT_PUBLIC_USE_MOCKS === "1";
+  if (signedIn || request.nextUrl.pathname === "/login") return;
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
