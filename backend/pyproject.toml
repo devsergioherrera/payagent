@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+dev = [
+    "pillow>=13.0.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "reportlab>=5.0.1",
+]
 
 [build-system]
 requires = ["hatchling"]

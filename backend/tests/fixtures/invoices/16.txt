@@ -1,0 +1,12 @@
+Estimado equipo de FacturaYa,
+
+Adjunto les envío la factura correspondiente a los servicios prestados.
+
+Proveedor: Northwind Software Inc.
+Monto: 1,950.00 USD
+Fecha: 2026-10-17
+
+Quedamos atentos a su confirmación de pago.
+
+Saludos cordiales,
+Equipo de Northwind Software Inc.
