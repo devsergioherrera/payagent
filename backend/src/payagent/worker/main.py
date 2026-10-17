@@ -1,25 +1,39 @@
 import logging
+import mimetypes
 import time
+from collections.abc import Callable
+from pathlib import Path
 
 from payagent.adapters.email.imap_source import ImapInvoiceSource
 from payagent.adapters.email.smtp_notifier import SmtpNotifier
+from payagent.adapters.postgres import PostgresHeartbeat, PostgresNotifications
 from payagent.adapters.upload.storage import FileStorage
-from payagent.app.process_invoice import InvoicePipeline, ProcessedInvoice, StoredDocument, process_invoice
+from payagent.app.process_invoice import process_invoice
+from payagent.app.wiring import build_pipeline
 from payagent.config import settings
-from payagent.ports.invoice_source import IncomingDocument
+from payagent.ports.invoice_source import IncomingDocument, SourceType
 
 log = logging.getLogger("payagent.worker")
 
+PROCESSED_DIR = "processed"
 
-class PipelineNotWired:
-    """Placeholder until block B (extractor + engine + Postgres) lands.
 
-    Raising makes process_invoice fail closed, so every mailed invoice is answered
-    with ESCALATE and the approver gets the escalation mail: the email loop is testable today.
-    """
-
-    def run(self, stored: StoredDocument) -> ProcessedInvoice:
-        raise NotImplementedError("extract -> evaluate -> persist is not wired yet")
+def poll_inbox(inbox: Path, handle: Callable[[IncomingDocument], None]) -> int:
+    """Hand every file dropped in `inbox` to `handle`, then move it to inbox/processed/."""
+    if not inbox.is_dir():
+        return 0
+    done = inbox / PROCESSED_DIR
+    count = 0
+    for path in sorted(p for p in inbox.iterdir() if p.is_file() and not p.name.startswith(".")):
+        content_type = mimetypes.guess_type(path.name)[0] or "text/plain"
+        handle(IncomingDocument(SourceType.INBOX, f"inbox:{path.name}", path.name, content_type, path.read_bytes()))
+        done.mkdir(exist_ok=True)
+        target = done / path.name
+        if target.exists():
+            target = done / f"{int(time.time())}-{path.name}"
+        path.replace(target)
+        count += 1
+    return count
 
 
 def main() -> None:
@@ -28,21 +42,35 @@ def main() -> None:
         raise SystemExit("GMAIL_ADDRESS and GMAIL_APP_PASSWORD are required for the worker")
 
     storage = FileStorage(settings.storage_dir)
-    pipeline: InvoicePipeline = PipelineNotWired()
+    pipeline = build_pipeline()
+    notifications = PostgresNotifications()
+    heartbeat = PostgresHeartbeat()
     notifier = SmtpNotifier(settings.gmail_address, settings.gmail_app_password, settings.approver_email)
     source = ImapInvoiceSource(settings.gmail_address, settings.gmail_app_password)
 
     def handle(doc: IncomingDocument) -> None:
-        result = process_invoice(doc, storage, pipeline, notifier, settings.public_base_url)
+        result = process_invoice(
+            doc, storage, pipeline, notifier, settings.public_base_url, notifications, settings.approver_email
+        )
         if result:
             log.info("%s from %s -> %s", doc.filename, doc.email.sender if doc.email else doc.source_ref, result.outcome)
 
-    log.info("polling %s every %ss", settings.gmail_address, settings.imap_poll_seconds)
+    log.info("polling %s every %ss, watching %s", settings.gmail_address, settings.imap_poll_seconds, settings.inbox_dir)
     while True:
         try:
             source.poll(handle)
+            ok = True
         except Exception:
             log.exception("imap poll failed")
+            ok = False
+        try:
+            heartbeat.beat(ok)
+        except Exception:
+            log.exception("heartbeat failed")
+        try:
+            poll_inbox(Path(settings.inbox_dir), handle)
+        except Exception:
+            log.exception("inbox poll failed")
         time.sleep(settings.imap_poll_seconds)
 
 

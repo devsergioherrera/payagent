@@ -2,8 +2,10 @@ import logging
 
 from payagent.app.explain import decision_prompt, template_explanation
 from payagent.app.process_invoice import AlreadyProcessed, ProcessedInvoice, StoredDocument
+from payagent.domain.decision import Decision, HitResult, Outcome
 from payagent.domain.engine import evaluate
 from payagent.domain.invoice import ExtractedInvoice
+from payagent.domain.rule import ColumnRef, Effect
 from payagent.ports.extractor import Explainer, Extractor
 from payagent.ports.repositories import Decisions, Invoices, Operations
 
@@ -60,8 +62,9 @@ class AgentPipeline:
         self.invoices.set_status(invoice_id, "EVALUATING")
         with self.decisions.session() as session:
             rules = session.active_rules()
-            sources = set().union(*(r.sources() for r in rules)) if rules else set()
-            decision = evaluate(rules, session.load_facts(invoice_id, sources))
+            sources = {"invoice"}.union(*(r.sources() for r in rules))
+            facts = session.load_facts(invoice_id, sources)
+            decision = evaluate(rules, facts)
             explanation = template_explanation(decision)
             decision_id = session.save_decision(invoice_id, operation_id, decision, explanation)
         self.invoices.set_status(invoice_id, "DECIDED", read_error)
@@ -79,7 +82,21 @@ class AgentPipeline:
             vendor=extracted.vendor_name_raw,
             amount=str(extracted.amount) if extracted.amount is not None else None,
             currency=extracted.currency,
+            amount_usd=_text(facts.value(ColumnRef("invoice", "amount_usd"))),
+            rule=_deciding_rule(decision),
         )
+
+
+def _text(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def _deciding_rule(decision: Decision) -> str | None:
+    effect = {Outcome.HOLD: Effect.HOLD, Outcome.ESCALATE: Effect.ESCALATE}.get(decision.outcome)
+    return next(
+        (h.rule_name for h in decision.hits if h.effect is effect and h.result in (HitResult.FIRED, HitResult.MISSING_DATA)),
+        None,
+    )
 
 
 def _summary(x: ExtractedInvoice) -> str:
