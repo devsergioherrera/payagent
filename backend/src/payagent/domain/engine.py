@@ -31,8 +31,8 @@ def evaluate(rules: Sequence[Rule], facts: Facts) -> Decision:
     Then:
       - each FIRED ALLOW turns FIRED/MISSING_DATA results of overridable ESCALATE rules into OVERRIDDEN.
         ALLOW never touches HOLD rules or non-overridable rules.
-      - outcome: HOLD if any HOLD rule fired or missed data; else ESCALATE if any ESCALATE rule
-        fired or missed data; else PAY.
+      - outcome: HOLD if any HOLD rule fired; else ESCALATE if any HOLD/ESCALATE rule fired or
+        missed data; else PAY. Missing data escalates even on a HOLD rule: a human must look.
       - no rules at all -> ESCALATE (fail-closed).
     Comparisons: numbers compare numerically whatever their Python type; ISO date strings compare
     as dates; EQ/NEQ on mixed types compare as strings.
@@ -59,10 +59,10 @@ _FIRING = (HitResult.FIRED, HitResult.MISSING_DATA)
 
 
 def _outcome(hits: Sequence[RuleHit]) -> Outcome:
-    firing = {h.effect for h in hits if h.result in _FIRING}
-    if Effect.HOLD in firing:
+    # Missing data never proves a HOLD reason; it only means a human must look, so it escalates.
+    if any(h.effect is Effect.HOLD and h.result is HitResult.FIRED for h in hits):
         return Outcome.HOLD
-    if Effect.ESCALATE in firing:
+    if any(h.effect is not Effect.ALLOW and h.result in _FIRING for h in hits):
         return Outcome.ESCALATE
     return Outcome.PAY
 

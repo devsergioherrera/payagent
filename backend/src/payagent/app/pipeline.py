@@ -1,7 +1,7 @@
 import logging
 
 from payagent.app.explain import decision_prompt, template_explanation
-from payagent.app.process_invoice import ProcessedInvoice, StoredDocument
+from payagent.app.process_invoice import AlreadyProcessed, ProcessedInvoice, StoredDocument
 from payagent.domain.engine import evaluate
 from payagent.domain.invoice import ExtractedInvoice
 from payagent.ports.extractor import Explainer, Extractor
@@ -32,7 +32,10 @@ class AgentPipeline:
     def run(self, stored: StoredDocument) -> ProcessedInvoice:
         invoice_id = self.invoices.create(stored.doc, stored.sha256, str(stored.path))
         if invoice_id is None:
-            raise ValueError(f"invoice {stored.sha256[:12]} already exists")
+            # Same file again: only a document we could not read gets a new attempt (a new operation).
+            invoice_id = self.invoices.retryable(stored.sha256)
+            if invoice_id is None:
+                raise AlreadyProcessed(stored.sha256)
         operation_id = self.operations.start("PROCESS_INVOICE", invoice_id)
         try:
             result = self._decide(invoice_id, operation_id, stored)
@@ -45,12 +48,13 @@ class AgentPipeline:
 
     def _decide(self, invoice_id: str, operation_id: str, stored: StoredDocument) -> ProcessedInvoice:
         self.invoices.set_status(invoice_id, "EXTRACTING")
+        read_error = None
         try:
             extracted = self.extractor.extract(stored.doc.content, stored.doc.content_type, operation_id)
-        except Exception:
+        except Exception as exc:
             # An unreadable document still goes through the rules: every field is NULL, so it escalates.
             log.exception("extraction failed for invoice %s", invoice_id)
-            extracted = UNREADABLE
+            extracted, read_error = UNREADABLE, f"No se pudo leer el documento: {exc}"[:500]
         self.invoices.save_extraction(invoice_id, extracted)
 
         self.invoices.set_status(invoice_id, "EVALUATING")
@@ -60,6 +64,7 @@ class AgentPipeline:
             decision = evaluate(rules, session.load_facts(invoice_id, sources))
             explanation = template_explanation(decision)
             decision_id = session.save_decision(invoice_id, operation_id, decision, explanation)
+        self.invoices.set_status(invoice_id, "DECIDED", read_error)
 
         try:
             explanation = self.explainer.explain(decision_prompt(decision, _summary(extracted)), operation_id)

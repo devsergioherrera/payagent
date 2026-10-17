@@ -2,7 +2,7 @@ from email.message import EmailMessage
 
 from payagent.adapters.email.imap_source import documents_from_message
 from payagent.adapters.upload.storage import FileStorage
-from payagent.app.process_invoice import ProcessedInvoice, StoredDocument, process_invoice
+from payagent.app.process_invoice import AlreadyProcessed, ProcessedInvoice, StoredDocument, process_invoice
 from payagent.domain.decision import Outcome
 from payagent.ports.invoice_source import EmailOrigin
 
@@ -63,6 +63,8 @@ class FixedPipeline:
         self.calls: list[StoredDocument] = []
 
     def run(self, stored):
+        if any(c.sha256 == stored.sha256 for c in self.calls):
+            raise AlreadyProcessed(stored.sha256)
         self.calls.append(stored)
         return ProcessedInvoice("inv-1", self.outcome, "Todo en regla.", "Acme", "500", "USD")
 

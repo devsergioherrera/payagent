@@ -76,6 +76,19 @@ class PostgresInvoices:
             ).fetchone()
         return str(row[0]) if row else None
 
+    def retryable(self, sha256: str) -> str | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                """
+                select i.id from invoice i
+                left join decision d on d.invoice_id = i.id
+                left join approval a on a.decision_id = d.id
+                where i.file_sha256 = %s and (i.status = 'FAILED' or i.error is not null) and a.id is null
+                """,
+                (sha256,),
+            ).fetchone()
+        return str(row[0]) if row else None
+
     def set_status(self, invoice_id: str, status: InvoiceStatus, error: str | None = None) -> None:
         with self._pool.connection() as conn:
             conn.execute("update invoice set status = %s, error = %s where id = %s", (status, error, invoice_id))
@@ -221,6 +234,12 @@ class PostgresDecisionSession:
     def save_decision(self, invoice_id: str, operation_id: str, decision: Decision, explanation: str) -> str:
         conn = self._conn
         status = "FINAL" if decision.outcome is Outcome.PAY else "PENDING_HUMAN"
+        # A retried invoice replaces its earlier, unresolved decision.
+        conn.execute(
+            "delete from decision_rule_hit where decision_id in (select id from decision where invoice_id = %s)",
+            (invoice_id,),
+        )
+        conn.execute("delete from decision where invoice_id = %s", (invoice_id,))
         decision_id = conn.execute(
             """
             insert into decision (invoice_id, operation_id, outcome, status, explanation, explained_by)

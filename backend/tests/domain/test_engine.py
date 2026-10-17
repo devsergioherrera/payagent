@@ -241,7 +241,7 @@ def test_malformed_rule_does_not_break_the_others():
     good = Rule("good", "good", Effect.ESCALATE, False, (cond(Operator.EQ, 7),))
     decision = evaluate([bad, good], Facts({"s": {"x": 7}}))
     assert [h.result for h in decision.hits] == [HitResult.MISSING_DATA, HitResult.FIRED]
-    assert decision.outcome is Outcome.HOLD
+    assert decision.outcome is Outcome.ESCALATE
 
 
 def test_null_operators_never_missing():
@@ -259,3 +259,10 @@ def test_value_ref():
 def test_missing_due_date_is_not_overdue():
     hits = hits_by_number(evaluate(seed_rules(), facts(invoice={"due_date": None}, invoice_checks={"dias_para_vencer": None})))
     assert hits[15] is HitResult.PASSED
+
+
+def test_unreadable_invoice_escalates_not_holds():
+    rows = {s: {k: None for k in r} if r else r for s, r in clean_rows().items()}
+    rows["vendor"] = None
+    decision = evaluate(seed_rules(), Facts(rows))
+    assert decision.outcome is Outcome.ESCALATE

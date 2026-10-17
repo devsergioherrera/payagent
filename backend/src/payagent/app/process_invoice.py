@@ -28,6 +28,10 @@ class ProcessedInvoice:
     currency: str | None = None
 
 
+class AlreadyProcessed(Exception):
+    """The same file was already decided (idempotency, NFR-4). Unreadable ones may be retried."""
+
+
 class InvoicePipeline(Protocol):
     """Extract -> evaluate rules -> persist -> explain. Same for email, upload and inbox/."""
 
@@ -41,14 +45,13 @@ def process_invoice(
     notifier: Notifier,
     public_base_url: str,
 ) -> ProcessedInvoice | None:
-    """Returns None when the exact same file was already processed (idempotency, NFR-4)."""
+    """Returns None when the exact same file was already decided (idempotency, NFR-4)."""
     stored = storage.save(doc.content, doc.filename)
-    if not stored.is_new:
-        log.info("skipping %s from %s: already processed", stored.sha256[:12], doc.source_ref)
-        return None
-
     try:
         result = pipeline.run(StoredDocument(doc, stored.sha256, stored.path))
+    except AlreadyProcessed:
+        log.info("skipping %s from %s: already processed", stored.sha256[:12], doc.source_ref)
+        return None
     except Exception:
         # Fail-closed (invariant 5): anything unexpected becomes ESCALATE, never PAY.
         log.exception("pipeline failed for %s", doc.source_ref)

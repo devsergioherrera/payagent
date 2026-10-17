@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from payagent.adapters.upload.storage import FileStorage
-from payagent.app.process_invoice import StoredDocument
+from payagent.app.process_invoice import AlreadyProcessed, StoredDocument
 from payagent.app.wiring import build_pipeline
 from payagent.config import settings
 from payagent.ports.invoice_source import IncomingDocument, SourceType
@@ -23,10 +23,11 @@ def main(paths: list[str]) -> None:
         content_type = mimetypes.guess_type(path.name)[0] or "text/plain"
         doc = IncomingDocument(SourceType.UPLOAD, f"cli:{path.name}", path.name, content_type, content)
         stored = storage.save(content, path.name)
-        if not stored.is_new:
-            print(f"{path.name}: ya procesada antes (mismo archivo)")
+        try:
+            result = pipeline.run(StoredDocument(doc, stored.sha256, stored.path))
+        except AlreadyProcessed:
+            print(f"{path.name}: ya se había decidido (mismo archivo)")
             continue
-        result = pipeline.run(StoredDocument(doc, stored.sha256, stored.path))
         print(f"\n{path.name} -> {LABEL[result.outcome]}")
         print(f"  {result.vendor} · {result.amount} {result.currency}")
         print(f"  {result.explanation}")
