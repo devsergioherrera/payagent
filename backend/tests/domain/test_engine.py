@@ -51,7 +51,7 @@ CASES = {
     12: (dict(po_check={"moneda_coincide": False}), dict()),
     13: (dict(invoice_checks={"campos_faltantes": 2}), dict()),
     14: (dict(invoice_checks={"dias_emision": -1}), dict(invoice_checks={"dias_emision": 90})),
-    15: (dict(invoice_checks={"dias_para_vencer": -1}), dict(invoice_checks={"dias_para_vencer": 0})),
+    15: (dict(invoice={"due_date": "2026-10-10"}, invoice_checks={"dias_para_vencer": -1}), dict(invoice_checks={"dias_para_vencer": 0})),
 }
 
 
@@ -241,7 +241,7 @@ def test_malformed_rule_does_not_break_the_others():
     good = Rule("good", "good", Effect.ESCALATE, False, (cond(Operator.EQ, 7),))
     decision = evaluate([bad, good], Facts({"s": {"x": 7}}))
     assert [h.result for h in decision.hits] == [HitResult.MISSING_DATA, HitResult.FIRED]
-    assert decision.outcome is Outcome.HOLD
+    assert decision.outcome is Outcome.ESCALATE
 
 
 def test_null_operators_never_missing():
@@ -254,3 +254,15 @@ def test_value_ref():
     assert one(cond(Operator.NEQ, ref="y"), x="a", y="b") is HitResult.FIRED
     assert one(cond(Operator.NEQ, ref="y"), x="a", y="a") is HitResult.PASSED
     assert one(cond(Operator.NEQ, ref="y"), x="a", y=None) is HitResult.MISSING_DATA
+
+
+def test_missing_due_date_is_not_overdue():
+    hits = hits_by_number(evaluate(seed_rules(), facts(invoice={"due_date": None}, invoice_checks={"dias_para_vencer": None})))
+    assert hits[15] is HitResult.PASSED
+
+
+def test_unreadable_invoice_escalates_not_holds():
+    rows = {s: {k: None for k in r} if r else r for s, r in clean_rows().items()}
+    rows["vendor"] = None
+    decision = evaluate(seed_rules(), Facts(rows))
+    assert decision.outcome is Outcome.ESCALATE

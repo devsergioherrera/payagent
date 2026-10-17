@@ -34,5 +34,5 @@ def seed_rules() -> list[Rule]:
            _c("po_check", "orden_encontrada", O.EQ, True), _c("po_check", "moneda_coincide", O.EQ, False)),
         _r(13, "Faltan datos", E, False, _c("invoice_checks", "campos_faltantes", O.GT, 0)),
         _r(14, "Fecha fuera de rango", E, True, _c("invoice_checks", "dias_emision", O.NOT_BETWEEN, [0, 90])),
-        _r(15, "Factura vencida", E, True, _c("invoice_checks", "dias_para_vencer", O.LT, 0)),
+        _r(15, "Factura vencida", E, True, _c("invoice", "due_date", O.IS_NOT_NULL, None), _c("invoice_checks", "dias_para_vencer", O.LT, 0)),
     ]
