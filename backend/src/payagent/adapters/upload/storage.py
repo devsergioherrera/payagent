@@ -14,7 +14,7 @@ class FileStorage:
     """Content-addressed store: the sha256 is the file name, so a repeat is detected for free."""
 
     def __init__(self, root: str | Path) -> None:
-        self.root = Path(root)
+        self.root = Path(root).resolve()  # stored paths must not depend on the process cwd
         self.root.mkdir(parents=True, exist_ok=True)
 
     def save(self, content: bytes, filename: str) -> StoredFile:

@@ -110,7 +110,7 @@ def test_valid_draft_through_lookups():
     assert out.draft.effect == "ESCALATE"
     c = out.draft.conditions[0]
     assert (c.source, c.column, c.operator, c.value) == ("invoice", "amount_usd", "GT", 5000.0)
-    assert c.text == "Factura · amount_usd > 5.000"
+    assert c.text == "Factura · monto en USD > 5.000"
     assert ops.started == ["RULE_DRAFT"] and ops.finished == [("op1", None)]
     assert len(meter.calls) == 3 and all(m[1] == "DRAFT_RULE" for m in meter.calls)
     sources = client.sent[1][-1].parts[0].function_response.response["fuentes"]
@@ -171,7 +171,7 @@ def test_allow_draft_with_normalized_tax_id_and_boolean():
     assert out.draft.effect == "ALLOW"
     assert out.draft.conditions[0].value == "841234567"
     assert out.draft.conditions[1].value is False
-    assert out.draft.conditions[1].text == "Orden de compra · orden_encontrada = no"
+    assert out.draft.conditions[1].text == "Orden de compra · orden encontrada = no"
 
 
 @pytest.mark.parametrize("conditions,fragment", [
@@ -209,6 +209,6 @@ def test_between_in_and_column_comparison_are_accepted():
     out = d.draft("x")
     assert out.error is None
     texts = [c.text for c in out.draft.conditions]
-    assert texts[0] == "Orden de compra · desviacion_pct entre 0 y 5"
-    assert texts[3] == "Factura · vendor_tax_id ≠ Proveedor · tax_id"
+    assert texts[0] == "Orden de compra · desviación % entre 0 y 5"
+    assert texts[3] == "Factura · NIT ≠ Proveedor · NIT"
     assert out.draft.conditions[3].value_source == "vendor"

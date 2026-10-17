@@ -7,9 +7,11 @@ from payagent.adapters.gemini._call import call_with_retry, record_usage
 from payagent.ports.usage import UsageMeter
 
 SYSTEM = (
-    "You explain a payment decision to a finance person. Write at most 3 sentences in "
-    "Spanish, in plain words, no markdown, no lists. Mention the amounts and the names of "
-    "the rules that fired. Use only the facts given; never add reasons or numbers."
+    "You explain a payment decision to a finance person, in Spanish. At most 2 short sentences, "
+    "35 words in total, plain words, no markdown, no lists. Start with what happened (pagada, frenada "
+    "or escalada) and the single most important reason; mention a second rule only if it matters. "
+    "Write money like 'USD 12.400' or 'EUR 652.546'. Never use English or codes like PAY, HOLD, ESCALATE. "
+    "Use only the facts given; never add reasons or numbers."
 )
 
 
