@@ -173,8 +173,46 @@ def test_rules_create_list_deactivate(client: TestClient, cleanup):
     assert client.post(f"/rules/{uuid.uuid4()}/deactivate").status_code == 404
 
 
-def test_chat_stub_returns_501(client: TestClient):
-    assert client.post("/chat").status_code == 501
+class FakeChat:
+    def reply(self, message):
+        from payagent.api.schemas import ChatReply
+
+        return ChatReply(text=f"eco: {message}", cards=[])
+
+
+def test_chat_text_goes_to_the_service(client: TestClient):
+    app.dependency_overrides[deps.get_chat] = lambda: FakeChat()
+    res = client.post("/chat", data={"message": " hola "})
+    assert res.status_code == 200 and res.json() == {"text": "eco: hola", "cards": [], "invoice_id": None}
+    assert client.post("/chat", data={"message": "  "}).status_code == 422
+    assert client.post("/chat").status_code == 422
+
+
+def test_chat_file_runs_the_invoice_path(client: TestClient, pipeline, cleanup):
+    content = f"Factura chat test {uuid.uuid4()}".encode()
+    res = client.post("/chat", data={"message": "mira"}, files={"file": ("c.txt", content, "text/plain")})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    cleanup["invoice"].append(body["invoice_id"])
+    assert body["text"] == "Recibí la factura. La estoy revisando."
+    assert body["cards"][0]["kind"] == "invoice" and body["cards"][0]["invoice"]["id"] == body["invoice_id"]
+    assert pipeline.calls == [("c.txt", body["invoice_id"])]
+    dup = client.post("/chat", files={"file": ("c.txt", content, "text/plain")}).json()
+    assert dup["invoice_id"] == body["invoice_id"] and len(pipeline.calls) == 1
+
+
+def test_search_and_pending_queries(client: TestClient, cleanup):
+    from payagent.api.deps import get_queries
+
+    inv = _decided_invoice(cleanup)
+    q = get_queries()
+    assert [r.id for r in q.search_invoices("test-N1")] == [inv]
+    assert q.search_invoices("   ") == []
+    assert inv in [r.id for r in q.pending_invoices(300)]
+    assert q.invoice_summary(inv).id == inv
+    vendor = q.vendors()[0]
+    assert [v.id for v in q.vendors_by_id([vendor.id])] == [vendor.id]
+    assert len(q.search_invoices(vendor.tax_id, 3)) <= 3
 
 
 def test_upload_returns_id_and_runs_pipeline(client: TestClient, pipeline, cleanup):

@@ -96,3 +96,10 @@ def get_proposals():
     from payagent.app.wiring import build_proposals
 
     return build_proposals()
+
+
+@lru_cache
+def get_chat():
+    from payagent.app.wiring import build_chat
+
+    return build_chat()

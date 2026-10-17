@@ -26,6 +26,7 @@ from payagent.api.schemas import (
     TimelineStep,
     VendorView,
 )
+from payagent.domain.invoice import normalize_id
 from payagent.app.rule_text import condition_text
 from payagent.domain.rule import ColumnRef, Condition, Operator
 from payagent.adapters.postgres.catalog import source_columns
@@ -112,6 +113,39 @@ class ApiQueries:
         query += " order by i.received_at desc limit %s"
         with self._pool.connection() as conn:
             return [self._summary(r) for r in _rows(conn, query, (*params, limit))]
+
+    def search_invoices(self, text: str, limit: int = 10) -> list[InvoiceSummary]:
+        """Invoices matching vendor name, tax id, vendor id, invoice number or amount; newest first."""
+        text = text.strip()
+        if not text:
+            return []
+        like = f"%{text}%"
+        digits = normalize_id(text) or ""
+        amount = f"%{text.replace(',', '').lstrip('$').strip()}%"
+        query = (
+            self._SUMMARY_SELECT
+            + """ where coalesce(v.name, i.vendor_name_raw) ilike %s or i.invoice_number ilike %s
+                   or i.amount::text like %s or v.id::text = %s
+                   or (%s <> '' and (v.tax_id = %s or i.vendor_tax_id = %s))
+                 order by i.received_at desc limit %s"""
+        )
+        with self._pool.connection() as conn:
+            rows = _rows(conn, query, (like, like, amount, text, digits, digits, digits, limit))
+        return [self._summary(r) for r in rows]
+
+    def pending_invoices(self, limit: int = 10) -> list[InvoiceSummary]:
+        return self.list_invoices(status="PENDING_HUMAN", limit=limit)
+
+    def invoice_summary(self, invoice_id: str) -> InvoiceSummary:
+        with self._pool.connection() as conn:
+            r = _row(conn, self._SUMMARY_SELECT + " where i.id = %s", (invoice_id,)) if _valid_uuid(invoice_id) else None
+        if r is None:
+            raise NotFound(invoice_id)
+        return self._summary(r)
+
+    def vendors_by_id(self, ids: list[str]) -> list[VendorView]:
+        wanted = set(ids)
+        return [v for v in self.vendors() if v.id in wanted]
 
     def invoice_detail(self, invoice_id: str) -> InvoiceDetail:
         with self._pool.connection() as conn:
