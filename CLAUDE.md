@@ -8,6 +8,13 @@ This repo is indexed by CodeGraph (`.codegraph/`). Use it before grep or reading
 
 The agent is what matters: deciding, explaining and learning rules. Cut screens and technicalities before touching that. Plan and owners: [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Frontend rules
+
+- **No long pages.** A screen fits the viewport: at most about 20% extra scroll on a 1440×900 desktop. Group content with tabs, master-detail panes, collapsible sections and fixed-height regions that scroll inside themselves; never stack everything in one long column.
+- **Every list is built for scale** (10k invoices, 5k purchase orders a month): search, filters and server-side pagination. Never render a whole table.
+- **Icons everywhere they help scanning**: `lucide-react` only. Resolve each name with the `lucide-icons` skill index; never guess a name.
+- Follow `frontend-design:frontend-design` and verify every screen with real screenshots at 1440 and 390 before calling it done.
+
 ## Environments
 
 | | Development (your laptop) | Production (AWS) |
