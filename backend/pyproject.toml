@@ -16,8 +16,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pillow>=13.0.0",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    "reportlab>=5.0.1",
 ]
 
 [build-system]

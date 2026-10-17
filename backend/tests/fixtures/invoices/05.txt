@@ -1,0 +1,17 @@
+Estimado equipo de FacturaYa,
+
+Adjunto les envío la factura correspondiente a los servicios prestados.
+
+Proveedor: Comercializadora Aurora S.A.S.
+NIT: 900.123.456-7
+Factura: FE-10234
+Fecha de emisión: 2026-10-17
+Fecha de vencimiento: 2026-11-16
+Orden de compra: PO-1005
+Cuenta bancaria: 0012-3456-7890-1
+Monto: 11,800,000.00 COP
+
+Quedamos atentos a su confirmación de pago.
+
+Saludos cordiales,
+Equipo de Comercializadora Aurora S.A.S.

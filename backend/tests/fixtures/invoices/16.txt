@@ -1,0 +1,16 @@
+Estimado equipo de FacturaYa,
+
+Adjunto les envío la factura correspondiente a los servicios prestados.
+
+Proveedor: Northwind Software Inc.
+Tax ID: 84-1234567
+Invoice Number: NW-8704
+Issue Date: 2026-10-17
+Due Date: 2026-11-16
+Bank Account: 021000021987654321
+Amount: 1,950.00 USD
+
+Quedamos atentos a su confirmación de pago.
+
+Saludos cordiales,
+Equipo de Northwind Software Inc.
