@@ -20,11 +20,8 @@ from payagent.ports.invoice_source import IncomingDocument
 from payagent.ports.repositories import InvoiceStatus, OperationType
 
 DECISION_LOCK_KEY = 4242
-# Facts should be read as rules_reader, but migration 003 enables RLS without a policy for that role, so it
-# sees zero rows in invoice, vendor and purchase_order (and a missing row means NOT_APPLICABLE, i.e. fail-open).
-# Until a policy (or BYPASSRLS) exists for it, run as the connection role; identifiers are still validated.
-# Set to "rules_reader" once `create policy ... to rules_reader using (true)` is applied on those tables.
-FACT_READER_ROLE: str | None = None
+# Facts are read under this role (SELECT-only, RLS policy in migration 005).
+FACT_READER_ROLE: str | None = "rules_reader"
 
 
 class PostgresOperations:

@@ -51,7 +51,7 @@ CASES = {
     12: (dict(po_check={"moneda_coincide": False}), dict()),
     13: (dict(invoice_checks={"campos_faltantes": 2}), dict()),
     14: (dict(invoice_checks={"dias_emision": -1}), dict(invoice_checks={"dias_emision": 90})),
-    15: (dict(invoice_checks={"dias_para_vencer": -1}), dict(invoice_checks={"dias_para_vencer": 0})),
+    15: (dict(invoice={"due_date": "2026-10-10"}, invoice_checks={"dias_para_vencer": -1}), dict(invoice_checks={"dias_para_vencer": 0})),
 }
 
 
@@ -254,3 +254,8 @@ def test_value_ref():
     assert one(cond(Operator.NEQ, ref="y"), x="a", y="b") is HitResult.FIRED
     assert one(cond(Operator.NEQ, ref="y"), x="a", y="a") is HitResult.PASSED
     assert one(cond(Operator.NEQ, ref="y"), x="a", y=None) is HitResult.MISSING_DATA
+
+
+def test_missing_due_date_is_not_overdue():
+    hits = hits_by_number(evaluate(seed_rules(), facts(invoice={"due_date": None}, invoice_checks={"dias_para_vencer": None})))
+    assert hits[15] is HitResult.PASSED
