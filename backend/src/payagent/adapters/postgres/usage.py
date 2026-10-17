@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 # USD per 1M tokens: (input, output).
 PRICES: dict[str, tuple[float, float]] = {
     "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-3.8-flash": (0.30, 2.50),  # estimate: same as 2.5-flash
 }
 
 
