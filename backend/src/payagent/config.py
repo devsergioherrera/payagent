@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     domain: str = ""
     public_base_url: str = ""
     # Relative to backend/ for local runs; docker-compose sets /app/storage and /app/inbox.
+    admin_password: str = ""
+    session_secret: str = ""
+    admin_name: str = "Sergio"
     storage_dir: str = "../storage"
     inbox_dir: str = "../inbox"
 

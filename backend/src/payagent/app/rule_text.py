@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from payagent.domain.rule import Condition, Effect, Operator
 
 EFFECT_LABEL = {Effect.ALLOW: "Permitir", Effect.ESCALATE: "Escalar", Effect.HOLD: "Frenar"}
@@ -15,7 +17,8 @@ def _value(v: object) -> str:
         return "sí" if v else "no"
     if isinstance(v, list):
         return " y ".join(_value(x) for x in v) if len(v) == 2 else ", ".join(_value(x) for x in v)
-    if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(".", "", 1).isdigit()):
+    # Only real numbers get thousands separators; digit strings are ids (tax ids, accounts).
+    if isinstance(v, (int, float, Decimal)):
         return f"{float(v):,.0f}".replace(",", ".") if float(v) == int(float(v)) else str(v)
     return str(v)
 

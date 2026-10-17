@@ -31,8 +31,10 @@ class AgentPipeline:
         self.extractor = extractor
         self.explainer = explainer
 
-    def run(self, stored: StoredDocument) -> ProcessedInvoice:
-        invoice_id = self.invoices.create(stored.doc, stored.sha256, str(stored.path))
+    def run(self, stored: StoredDocument, invoice_id: str | None = None) -> ProcessedInvoice:
+        """`invoice_id`: the caller already created the row (the API answers before the pipeline ends)."""
+        if invoice_id is None:
+            invoice_id = self.invoices.create(stored.doc, stored.sha256, str(stored.path))
         if invoice_id is None:
             # Same file again: only a document we could not read gets a new attempt (a new operation).
             invoice_id = self.invoices.retryable(stored.sha256)

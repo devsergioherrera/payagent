@@ -37,7 +37,7 @@ class AlreadyProcessed(Exception):
 class InvoicePipeline(Protocol):
     """Extract -> evaluate rules -> persist -> explain. Same for email, upload and inbox/."""
 
-    def run(self, stored: StoredDocument) -> ProcessedInvoice: ...
+    def run(self, stored: StoredDocument, invoice_id: str | None = None) -> ProcessedInvoice: ...
 
 
 class NotificationLog(Protocol):
@@ -59,11 +59,13 @@ def process_invoice(
     public_base_url: str,
     notifications: NotificationLog | None = None,
     approver_email: str = "",
+    invoice_id: str | None = None,
 ) -> ProcessedInvoice | None:
     """Returns None when the exact same file was already decided (idempotency, NFR-4)."""
     stored = storage.save(doc.content, doc.filename)
     try:
-        result = pipeline.run(StoredDocument(doc, stored.sha256, stored.path))
+        stored_doc = StoredDocument(doc, stored.sha256, stored.path)
+        result = pipeline.run(stored_doc, invoice_id) if invoice_id else pipeline.run(stored_doc)
     except AlreadyProcessed:
         log.info("skipping %s from %s: already processed", stored.sha256[:12], doc.source_ref)
         return None
@@ -71,7 +73,7 @@ def process_invoice(
         # Fail-closed (invariant 5): anything unexpected becomes ESCALATE, never PAY.
         log.exception("pipeline failed for %s", doc.source_ref)
         result = ProcessedInvoice(
-            invoice_id=None,
+            invoice_id=invoice_id,
             outcome=Outcome.ESCALATE,
             explanation="Escalada: no se pudo procesar la factura automáticamente.",
         )
