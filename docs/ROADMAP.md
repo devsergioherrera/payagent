@@ -22,7 +22,7 @@ Lo importante es el agente: decide bien, explica cada decisión y aprende reglas
 | Pantallas | Mesa, Facturas, Detalle de factura, Reglas, Proveedores (solo lectura), Costos. Sin Configuración. Login con una contraseña. Solo español. |
 | Colores | Negro, blanco y violeta índigo `#5B3DF5`. Verde, ámbar y rojo solo para Pagar, Escalar y Frenar. |
 | Datos | Supabase. Esquema: [db-schema.html](db-schema.html). |
-| LLM | Gemini (`gemini-2.5-flash` para extraer y redactar). |
+| LLM | Gemini (`gemini-3.8-flash` para extraer y redactar (2.5 ya no está disponible para cuentas nuevas)). |
 
 ## Reglas seed
 
