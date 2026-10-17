@@ -9,3 +9,5 @@ inbox/*
 !inbox/.gitkeep
 storage/*
 !storage/.gitkeep
+.codegraph/
+.claude/worktrees/
