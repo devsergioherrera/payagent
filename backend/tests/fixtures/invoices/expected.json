@@ -1,0 +1,18 @@
+{
+ "01.pdf": "PAY",
+ "02.pdf": "PAY",
+ "03.png": "PAY",
+ "04.pdf": "PAY",
+ "05.txt": "PAY",
+ "06.png": "PAY",
+ "07.pdf": "HOLD",
+ "08.pdf": "ESCALATE",
+ "09.pdf": "ESCALATE",
+ "10.pdf": "ESCALATE",
+ "11.pdf": "ESCALATE",
+ "12.pdf": "HOLD",
+ "13.txt": "ESCALATE",
+ "14.png": "ESCALATE",
+ "15.pdf": "HOLD",
+ "16.txt": "ESCALATE"
+}
