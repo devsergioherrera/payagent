@@ -22,3 +22,10 @@ export function shortDate(iso: string | null | undefined) {
 export function time(iso: string) {
   return new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(iso));
 }
+
+export function dayTime(iso: string) {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(d).replace(".", "").replace(" de ", " ");
+  const hm = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  return `${day} ${hm}`;
+}
