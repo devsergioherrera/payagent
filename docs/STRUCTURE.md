@@ -131,7 +131,7 @@ hackathon/
                               Gmail          Supabase Postgres (DATABASE_URL)       Gemini API
 ```
 
-**Target: one small Linux VM running `docker compose`** (Hetzner CX22, DigitalOcean 2 GB droplet, or GCP e2-small). Reasons it beats splitting across Vercel/Render:
+**Target: one DigitalOcean Droplet running `docker compose`** (Ubuntu + Docker 1-Click image, 2 GB RAM, ~$12/month; free with GitHub Student Pack credits). Reasons it beats splitting across Vercel/Render:
 
 1. The worker is a long-running process (IMAP every 10 s, cron). Serverless platforms kill it.
 2. WebSockets need a persistent API process.
