@@ -23,9 +23,9 @@ export function ProposeButton({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <Button variant="outline" onClick={run} disabled={busy} className="border-brand/40 text-brand hover:bg-brand-soft hover:text-brand">
+    <Button size="sm" variant="outline" onClick={run} disabled={busy} className="border-brand/40 text-brand hover:bg-brand-soft hover:text-brand">
       {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-      {busy ? "Revisando tus últimas decisiones…" : "Proponer reglas"}
+      {busy ? "Revisando…" : "Proponer reglas"}
     </Button>
   );
 }

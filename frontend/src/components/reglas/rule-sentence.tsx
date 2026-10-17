@@ -1,6 +1,6 @@
 import type { RuleDraft } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
-import { EffectBadge } from "./effect-badge";
+import { EFFECT, EffectBadge } from "./effect-badge";
 
 export function ConditionChip({ text }: { text: string }) {
   return (
@@ -11,7 +11,7 @@ export function ConditionChip({ text }: { text: string }) {
 }
 
 // "Si <condition> y <condition> → Escalar": the rule read as a sentence.
-export function RuleSentence({ rule, className }: { rule: RuleDraft; className?: string }) {
+export function RuleSentence({ rule, plainEffect, className }: { rule: RuleDraft; plainEffect?: boolean; className?: string }) {
   return (
     <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm", className)}>
       <span className="text-muted-foreground">Si</span>
@@ -22,7 +22,7 @@ export function RuleSentence({ rule, className }: { rule: RuleDraft; className?:
         </span>
       ))}
       <span className="text-muted-foreground" aria-hidden>→</span>
-      <EffectBadge effect={rule.effect} />
+      {plainEffect ? <span className="font-medium">{EFFECT[rule.effect].label}</span> : <EffectBadge effect={rule.effect} />}
     </div>
   );
 }
