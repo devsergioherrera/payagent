@@ -3,6 +3,7 @@ from payagent.adapters.postgres.db import close_pool, get_pool
 from payagent.adapters.postgres.feedback import PostgresFeedbackLog
 from payagent.adapters.postgres.heartbeat import PostgresHeartbeat
 from payagent.adapters.postgres.notifications import PostgresNotifications
+from payagent.adapters.postgres.proposals import PostgresProposals
 from payagent.adapters.postgres.repositories import PostgresDecisions, PostgresInvoices, PostgresOperations
 from payagent.adapters.postgres.usage import PostgresUsageMeter
 
@@ -13,6 +14,7 @@ __all__ = [
     "PostgresInvoices",
     "PostgresNotifications",
     "PostgresOperations",
+    "PostgresProposals",
     "PostgresRuleCatalog",
     "PostgresRules",
     "PostgresUsageMeter",

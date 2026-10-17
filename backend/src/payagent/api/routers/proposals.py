@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from payagent.api.deps import get_proposals
 from payagent.api.schemas import ProposalRun, ProposalView, RuleView
-from payagent.app.propose_rules import ProposalRunInProgress, ProposalService
+from payagent.app.propose_rules import ProposalNotPending, ProposalRunInProgress, ProposalService
 from payagent.config import settings
 
 router = APIRouter(prefix="/proposals")
@@ -19,6 +19,8 @@ def _call(fn: Callable[[], T]) -> T:
         raise HTTPException(status_code=501, detail="Las propuestas de reglas aún no están disponibles")
     except ProposalRunInProgress:
         raise HTTPException(status_code=409, detail="Ya hay una revisión en curso")
+    except ProposalNotPending:
+        raise HTTPException(status_code=409, detail="La propuesta ya fue resuelta")
     except KeyError:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")
 
