@@ -1,9 +1,13 @@
 from google import genai
 
+from payagent.adapters.email.smtp_notifier import SmtpNotifier
 from payagent.adapters.gemini.explainer import GeminiExplainer
 from payagent.adapters.gemini.extractor import GeminiExtractor
 from payagent.adapters.postgres import PostgresDecisions, PostgresInvoices, PostgresOperations, PostgresUsageMeter
+from payagent.adapters.upload.storage import FileStorage
+from payagent.app.draft_rule import RuleDrafter
 from payagent.app.pipeline import AgentPipeline
+from payagent.app.propose_rules import ProposalService
 from payagent.config import settings
 
 
@@ -17,3 +21,19 @@ def build_pipeline() -> AgentPipeline:
         extractor=GeminiExtractor(client, meter),
         explainer=GeminiExplainer(client, meter),
     )
+
+
+def build_storage() -> FileStorage:
+    return FileStorage(settings.storage_dir)
+
+
+def build_notifier() -> SmtpNotifier:
+    return SmtpNotifier(settings.gmail_address, settings.gmail_app_password, settings.approver_email)
+
+
+def build_drafter() -> RuleDrafter:
+    return RuleDrafter()
+
+
+def build_proposals() -> ProposalService:
+    return ProposalService()
