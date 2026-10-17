@@ -19,6 +19,9 @@ from payagent.api.schemas import (
     InvoiceSummary,
     OperationCost,
     OperationRow,
+    Page,
+    PurchaseOrderDetail,
+    PurchaseOrderRow,
     PurchaseOrderView,
     RuleSourceView,
     RuleView,
@@ -90,9 +93,10 @@ class ApiQueries:
             decision_status=r["decision_status"], headline=r["headline"], decided_by=r["decided_by"],
         )
 
-    def list_invoices(
-        self, outcome: str | None = None, status: str | None = None, q: str | None = None, limit: int = 300
-    ) -> list[InvoiceSummary]:
+    @staticmethod
+    def _invoice_filters(
+        outcome: str | None, status: str | None, q: str | None, vendor_id: str | None = None
+    ) -> tuple[str, list]:
         where, params = [], []
         if outcome:
             where.append("d.outcome = %s")
@@ -109,10 +113,27 @@ class ApiQueries:
                 "(coalesce(v.name, i.vendor_name_raw) ilike %s or i.invoice_number ilike %s or i.amount::text ilike %s)"
             )
             params += [like, like, like]
-        query = self._SUMMARY_SELECT + (" where " + " and ".join(where) if where else "")
-        query += " order by i.received_at desc limit %s"
+        if vendor_id:
+            where.append("i.vendor_id::text = %s")
+            params.append(vendor_id)
+        return (" where " + " and ".join(where) if where else ""), params
+
+    def list_invoices(
+        self, outcome: str | None = None, status: str | None = None, q: str | None = None, limit: int = 300,
+        offset: int = 0, vendor_id: str | None = None,
+    ) -> list[InvoiceSummary]:
+        clause, params = self._invoice_filters(outcome, status, q, vendor_id)
+        query = self._SUMMARY_SELECT + clause + " order by i.received_at desc, i.id limit %s offset %s"
         with self._pool.connection() as conn:
-            return [self._summary(r) for r in _rows(conn, query, (*params, limit))]
+            return [self._summary(r) for r in _rows(conn, query, (*params, limit, offset))]
+
+    def count_invoices(
+        self, outcome: str | None = None, status: str | None = None, q: str | None = None,
+        vendor_id: str | None = None,
+    ) -> int:
+        clause, params = self._invoice_filters(outcome, status, q, vendor_id)
+        with self._pool.connection() as conn:
+            return conn.execute("select count(*)" + self._SUMMARY_FROM + clause, params).fetchone()[0]
 
     def search_invoices(self, text: str, limit: int = 10) -> list[InvoiceSummary]:
         """Invoices matching vendor name, tax id, vendor id, invoice number or amount; newest first."""
@@ -144,8 +165,10 @@ class ApiQueries:
         return self._summary(r)
 
     def vendors_by_id(self, ids: list[str]) -> list[VendorView]:
-        wanted = set(ids)
-        return [v for v in self.vendors() if v.id in wanted]
+        valid = [i for i in ids if _valid_uuid(i)]
+        if not valid:
+            return []
+        return self._vendor_views("where v.id::text = any(%s)", [valid], "order by v.name")
 
     def invoice_detail(self, invoice_id: str) -> InvoiceDetail:
         with self._pool.connection() as conn:
@@ -359,26 +382,121 @@ class ApiQueries:
             email_connected=connected, email_checked_at=checked_at,
         )
 
-    def vendors(self) -> list[VendorView]:
+    _VENDOR_SELECT = """
+        select v.id::text, v.name, v.tax_id, v.country, v.currency, v.bank_rail, v.bank_account, v.status,
+               (select count(*) from invoice i where i.vendor_id = v.id) as invoices,
+               coalesce((select sum(c.amount_usd) from committed_invoice c where c.vendor_id = v.id), 0) as paid_usd
+        from vendor v"""
+
+    def _vendor_views(self, where: str, params: list, tail: str) -> list[VendorView]:
         with self._pool.connection() as conn:
-            vendors = _rows(
-                conn,
-                """select v.id::text, v.name, v.tax_id, v.country, v.currency, v.bank_rail, v.bank_account, v.status,
-                          (select count(*) from invoice i where i.vendor_id = v.id) as invoices,
-                          coalesce((select sum(c.amount_usd) from committed_invoice c where c.vendor_id = v.id), 0)
-                            as paid_usd
-                   from vendor v order by v.name""",
-            )
+            vendors = _rows(conn, f"{self._VENDOR_SELECT} {where} {tail}", params)
             pos: dict[str, list[PurchaseOrderView]] = {}
-            for p in _rows(conn, "select vendor_id::text, po_number, amount, currency, status, description "
-                                 "from purchase_order order by po_number"):
-                pos.setdefault(p["vendor_id"], []).append(PurchaseOrderView(
-                    po_number=p["po_number"], amount=float(p["amount"]), currency=p["currency"],
-                    status=p["status"], description=p["description"]))
+            if vendors:
+                for p in _rows(
+                    conn,
+                    "select vendor_id::text, po_number, amount, currency, status, description "
+                    "from purchase_order where vendor_id::text = any(%s) order by po_number",
+                    [[v["id"] for v in vendors]],
+                ):
+                    pos.setdefault(p["vendor_id"], []).append(PurchaseOrderView(
+                        po_number=p["po_number"], amount=float(p["amount"]), currency=p["currency"],
+                        status=p["status"], description=p["description"]))
         return [VendorView(id=v["id"], name=v["name"], tax_id=v["tax_id"], country=v["country"],
                            currency=v["currency"], bank_rail=v["bank_rail"], bank_account=v["bank_account"],
                            status=v["status"], purchase_orders=pos.get(v["id"], []), invoices=v["invoices"],
                            paid_usd=float(v["paid_usd"])) for v in vendors]
+
+    def vendors(
+        self, q: str | None = None, status: str | None = None, country: str | None = None,
+        limit: int = 50, offset: int = 0,
+    ) -> Page[VendorView]:
+        where, params = [], []
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            where.append("(v.name ilike %s or v.tax_id ilike %s)")
+            params += [like, like]
+        if status:
+            where.append("v.status = %s")
+            params.append(status)
+        if country:
+            where.append("v.country = %s")
+            params.append(country)
+        clause = "where " + " and ".join(where) if where else ""
+        with self._pool.connection() as conn:
+            total = conn.execute(f"select count(*) from vendor v {clause}", params).fetchone()[0]
+        items = self._vendor_views(clause, [*params, limit, offset], "order by v.name, v.id limit %s offset %s")
+        return Page(items=items, total=total)
+
+    # ---- purchase orders ------------------------------------------------------------------------------------
+
+    _PO_FROM = """
+        from purchase_order p
+        join vendor v on v.id = p.vendor_id
+        left join fx_rate fx on fx.currency = p.currency
+        left join (
+          select i.po_number, count(*) as invoices, max(i.received_at) as last_invoice_at,
+                 coalesce(sum(i.amount_usd) filter (where c.id is not null), 0) as invoiced_usd
+          from invoice i left join committed_invoice c on c.id = i.id
+          where i.po_number is not null group by i.po_number
+        ) a on a.po_number = p.po_number"""
+    _PO_COLS = """
+        select p.po_number, v.id::text as vendor_id, v.name as vendor_name, p.description, p.amount, p.currency,
+               p.amount * coalesce(fx.rate_to_usd, 1) as amount_usd,
+               coalesce(a.invoiced_usd, 0) as invoiced_usd,
+               p.amount * coalesce(fx.rate_to_usd, 1) - coalesce(a.invoiced_usd, 0) as remaining_usd,
+               coalesce(a.invoices, 0) as invoices, p.status, a.last_invoice_at"""
+
+    @staticmethod
+    def _po_row(r: dict) -> PurchaseOrderRow:
+        return PurchaseOrderRow(
+            po_number=r["po_number"], vendor_id=r["vendor_id"], vendor_name=r["vendor_name"],
+            description=r["description"], amount=float(r["amount"]), currency=r["currency"],
+            amount_usd=round(float(r["amount_usd"]), 2), invoiced_usd=round(float(r["invoiced_usd"]), 2),
+            remaining_usd=round(float(r["remaining_usd"]), 2), invoices=r["invoices"], status=r["status"],
+            last_invoice_at=r["last_invoice_at"],
+        )
+
+    def purchase_orders(
+        self, q: str | None = None, vendor_id: str | None = None, status: str | None = None,
+        with_balance: bool = False, limit: int = 50, offset: int = 0,
+    ) -> Page[PurchaseOrderRow]:
+        where, params = [], []
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            where.append("(p.po_number ilike %s or p.description ilike %s or v.name ilike %s or v.tax_id ilike %s)")
+            params += [like] * 4
+        if vendor_id:
+            if not _valid_uuid(vendor_id):
+                return Page(items=[], total=0)
+            where.append("p.vendor_id = %s::uuid")
+            params.append(vendor_id)
+        if status:
+            where.append("p.status = %s")
+            params.append(status)
+        if with_balance:
+            where.append("p.status = 'OPEN' and p.amount * coalesce(fx.rate_to_usd, 1) > coalesce(a.invoiced_usd, 0)")
+        clause = " where " + " and ".join(where) if where else ""
+        with self._pool.connection() as conn:
+            total = conn.execute("select count(*)" + self._PO_FROM + clause, params).fetchone()[0]
+            rows = _rows(
+                conn,
+                self._PO_COLS + self._PO_FROM + clause
+                + " order by a.last_invoice_at desc nulls last, p.po_number limit %s offset %s",
+                (*params, limit, offset),
+            )
+        return Page(items=[self._po_row(r) for r in rows], total=total)
+
+    def purchase_order(self, po_number: str) -> PurchaseOrderDetail:
+        with self._pool.connection() as conn:
+            r = _row(conn, self._PO_COLS + self._PO_FROM + " where p.po_number = %s", (po_number,))
+            if r is None:
+                raise NotFound(po_number)
+            invoices = _rows(
+                conn, self._SUMMARY_SELECT + " where i.po_number = %s order by i.received_at desc, i.id limit 200",
+                (po_number,),
+            )
+        return PurchaseOrderDetail(po=self._po_row(r), invoices=[self._summary(i) for i in invoices])
 
     def costs(self) -> Costs:
         with self._pool.connection() as conn:

@@ -1,7 +1,7 @@
 import mimetypes
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from payagent.adapters.postgres.queries import ApiQueries, NotFound, NotPending
@@ -17,10 +17,14 @@ router = APIRouter(prefix="/invoices")
 
 @router.get("")
 def list_invoices(
-    outcome: str | None = None, status: str | None = None, q: str | None = None,
+    response: Response,
+    outcome: str | None = None, status: str | None = None, q: str | None = None, vendor_id: str | None = None,
+    limit: int = Query(200, ge=1, le=500), offset: int = Query(0, ge=0),
     queries: ApiQueries = Depends(get_queries),
 ) -> list[InvoiceSummary]:
-    return queries.list_invoices(outcome or None, status or None, q)
+    outcome, status, vendor_id = outcome or None, status or None, vendor_id or None
+    response.headers["X-Total-Count"] = str(queries.count_invoices(outcome, status, q, vendor_id))
+    return queries.list_invoices(outcome, status, q, limit, offset, vendor_id)
 
 
 @router.post("")
