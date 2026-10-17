@@ -1,106 +1,56 @@
-import type { InvoiceSummary } from "@/lib/api-types";
-import { money } from "@/lib/format";
-import { shortDate } from "@/lib/format";
-import { Source } from "@/lib/api-types";
+import Link from "next/link";
+import type { InvoiceSummary, Source } from "@/lib/api-types";
+import { invoiceState, money, shortDate } from "@/lib/format";
 import { OutcomeBadge } from "@/components/outcome-badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { StatusDot } from "@/components/mesa/status-dot";
 
-export interface OutletProps {
-  invoices: InvoiceSummary[];
-}
+const SOURCE: Record<Source, string> = {
+  EMAIL: "Correo", UPLOAD: "Carga", TEXT: "Texto", CHAT: "Chat", INBOX: "Bandeja", SEED: "Histórico",
+};
+const DECIDER = { AGENT: "Agente", HUMAN: "Tú" } as const;
 
-export default function Outlet({ invoices }: OutletProps) {
+// One grid for header and rows so the columns line up; below md each row collapses to two lines.
+const COLS = "md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_104px_72px] md:items-center md:gap-4";
+
+export default function Outlet({ invoices }: { invoices: InvoiceSummary[] }) {
   if (invoices.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No se encontraron facturas</p>
-      </div>
-    );
+    return <p className="py-12 text-center text-sm text-muted-foreground">No hay facturas que coincidan.</p>;
   }
-
-  const sourceLabels: Record<Source, string> = {
-    EMAIL: "Correo",
-    UPLOAD: "Carga",
-    TEXT: "Texto",
-    CHAT: "Chat",
-    INBOX: "Bandeja",
-    SEED: "Semilla",
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <Table className="w-full">
-          <TableHead>
-            <TableRow>
-              <TableHead className="w-20">Proveedor</TableHead>
-              <TableHead className="w-16">Número</TableHead>
-              <TableHead className="w-16">Fecha</TableHead>
-              <TableHead className="w-20">Monto</TableHead>
-              <TableHead className="w-16">Fuente</TableHead>
-              <TableHead className="w-20">Resultado</TableHead>
-              <TableHead className="w-16">Decidido por</TableHead>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {invoices.map((invoice) => (
-              <TableRow key={invoice.id} onClick={() => {
-                // Navigate to invoice detail
-                // In a real app, we'd use router.push here
-                console.log(`Navigating to invoice ${invoice.id}`);
-              }}>
-                <TableCell>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                      {invoice.vendor_name ? invoice.vendor_name[0] : "?"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{invoice.vendor_name ?? "—"}</p>
-                      {invoice.vendor_name && (
-                        <p className="text-xs text-muted-foreground">NIT: —</p>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm font-mono tabular-nums">
-                  {invoice.invoice_number ?? "—"}
-                </TableCell>
-                <TableCell className="text-sm tabular-nums">
-                  {shortDate(invoice.received_at)}
-                </TableCell>
-                <TableCell className="text-sm tabular-nums">
-                   <div className="flex flex-col">
-                     <p className="font-medium">{money(invoice.amount, invoice.currency || "USD")}</p>
-                     {invoice.amount_usd !== null && (
-                       <p className="text-xs text-muted-foreground">
-                         ~{money(invoice.amount_usd, "USD")}
-                       </p>
-                     )}
-                   </div>
-                </TableCell>
-                <TableCell className="text-sm capitalize">
-                  {sourceLabels[invoice.source as Source] ?? invoice.source}
-                </TableCell>
-                <TableCell>
-                  {invoice.outcome ? (
-                    <OutcomeBadge outcome={invoice.outcome} className="h-8 w-24" />
-                  ) : (
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted">
-                      Procesando
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {invoice.decided_by ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+    <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className={`hidden border-b px-5 py-3 text-xs text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_104px_72px] md:gap-4`}>
+        <span>Proveedor</span><span>Número</span><span>Fecha</span><span className="text-right">Monto</span>
+        <span>Fuente</span><span>Resultado</span><span>Decidió</span>
       </div>
+      <ul className="divide-y">
+        {invoices.map((i) => (
+          <li key={i.id}>
+            <Link href={`/facturas/${i.id}`} className={`block px-5 py-3.5 transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none ${COLS}`}>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <StatusDot invoice={i} />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{i.vendor_name ?? "Leyendo factura"}</span>
+                <span className="shrink-0 text-sm font-medium tabular-nums md:hidden">{money(i.amount, i.currency ?? "USD")}</span>
+              </div>
+              <p className="mt-0.5 truncate pl-5 text-xs text-muted-foreground md:hidden">
+                {[i.invoice_number, shortDate(i.received_at), invoiceState(i)].filter(Boolean).join(" · ")}
+              </p>
+              <span className="hidden text-[13px] tabular-nums md:block">{i.invoice_number ?? "—"}</span>
+              <span className="hidden text-[13px] tabular-nums text-muted-foreground md:block">{shortDate(i.received_at)}</span>
+              <div className="hidden text-right md:block">
+                <p className="text-sm font-medium tabular-nums">{money(i.amount, i.currency ?? "USD")}</p>
+                {i.currency && i.currency !== "USD" && i.amount_usd != null && (
+                  <p className="text-xs tabular-nums text-muted-foreground">{money(i.amount_usd, "USD")}</p>
+                )}
+              </div>
+              <span className="hidden text-[13px] text-muted-foreground md:block">{SOURCE[i.source]}</span>
+              <span className="hidden md:block">
+                {i.outcome ? <OutcomeBadge outcome={i.outcome} /> : <span className="text-xs text-muted-foreground">Procesando</span>}
+              </span>
+              <span className="hidden text-[13px] text-muted-foreground md:block">{i.decided_by ? DECIDER[i.decided_by] : "—"}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
-   );
- }
+  );
+}

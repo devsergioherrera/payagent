@@ -1,43 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { usePolling } from "@/hooks/use-polling";
-import { MoneyColumn } from "@/components/mesa/money-column";
-import { SummaryColumn } from "@/components/mesa/summary-column";
-import { PendingColumn } from "@/components/mesa/pending-column";
-import { ChatComposer } from "@/components/mesa/chat-composer";
+import { Center } from "@/components/mesa/center";
+import { InvoiceRail } from "@/components/mesa/invoice-rail";
+import { PendingRail } from "@/components/mesa/pending-rail";
 
 export default function Page() {
-  const { data: summary, error: summaryError } = usePolling(() => api.summary(), 3000);
+  const { data: summary } = usePolling(() => api.summary());
+  const { data: invoices } = usePolling(() => api.invoices());
 
-  if (summaryError) {
-    return <div className="p-4 text-sm text-destructive">Error cargando resumen</div>
-  }
-
+  // Cancels the layout padding so the three areas fill the space under the nav.
   return (
-    <div className="flex h-[calc(100vh-4.5rem)] flex-col">
-      {!summary ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="ml-2 text-xs text-muted-foreground">Correo conectado · revisado hace 8 s</span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            <span className="text-xs text-muted-foreground">
-              Correo conectado · revisado hace {summary.email_checked_at ? new Date(summary.email_checked_at).toLocaleTimeString() : '8 s'}
-            </span>
-          </div>
-        </div>
-      )}
-      <div className="flex-1 flex gap-4">
-        <MoneyColumn className="w-[260px] shrink-0" />
-        <SummaryColumn className="flex-1 min-w-0" />
-        <PendingColumn className="w-[260px] shrink-0" />
-        <ChatComposer className="w-[320px] shrink-0" />
-      </div>
+    <div className="-mx-4 -my-6 flex flex-col lg:h-[calc(100dvh-3.5rem)] lg:flex-row">
+      <Center summary={summary} invoices={invoices} className="order-1 min-h-[calc(100dvh-3.5rem)] lg:order-2 lg:min-h-0 lg:flex-1" />
+      <PendingRail invoices={invoices} className="order-2 border-t lg:order-3 lg:w-80 lg:shrink-0 lg:border-l lg:border-t-0" />
+      <InvoiceRail invoices={invoices} summary={summary} className="order-3 max-h-[32rem] border-t lg:order-1 lg:max-h-none lg:w-80 lg:shrink-0 lg:border-r lg:border-t-0" />
     </div>
   );
 }
