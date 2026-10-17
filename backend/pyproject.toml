@@ -26,3 +26,4 @@ packages = ["src/payagent"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["db: runs against the real Supabase database"]
