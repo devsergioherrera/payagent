@@ -2,6 +2,12 @@
 
 Payments agent for the Blinka challenge. Spec: [docs/SPEC.md](docs/SPEC.md). Layout and deployment details: [docs/STRUCTURE.md](docs/STRUCTURE.md).
 
+## Code navigation
+
+This repo is indexed by CodeGraph (`.codegraph/`). Use it before grep or reading files: the `codegraph_explore` MCP tool, or `codegraph explore "<symbols or question>"` in the shell. Every agent working here (Claude, OpenCode) does the same.
+
+The agent is what matters: deciding, explaining and learning rules. Cut screens and technicalities before touching that. Plan and owners: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Environments
 
 | | Development (your laptop) | Production (AWS) |
@@ -43,3 +49,8 @@ Never run the dev email worker while production is up unless you mean to: both r
 5. Delete the branch and worktree once merged.
 
 **Don't push to `main` just to deploy or to "see if it works".** Each push rebuilds production and can take the demo down. Try it in dev first; to redeploy without code changes, use *Run workflow* on the CD action instead of an empty commit.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+## Learned rules
+- Keep every reply to the user at 200 words or fewer.
+<!-- end claude-reflect -->

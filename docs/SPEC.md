@@ -9,12 +9,12 @@ Versión 1.0 · 17 oct 2026 · Entrega: domingo 18 oct, 11:59 a. m. (link GitHub
 | Tema | Decisión |
 |---|---|
 | Equipo | Una persona + subagentes. Todo lo no listado aquí queda fuera. |
-| Empresa | Una sola empresa ficticia: **FacturaYa** (EE. UU., moneda base USD). Sin multiempresa. |
+| Empresa | Una sola empresa ficticia: **Nortech Labs Inc.** (EE. UU., moneda base USD). Sin multiempresa. |
 | Lo acordado | **Orden de compra (PO)**. No existe tabla de contratos. |
 | Áreas | Categoría de la factura **con presupuesto mensual por área** (Compras, Costos, Materia Prima, Marketing). |
 | Facturas vencidas | Se **escalan** si pasan el resto de validaciones. |
 | Reglas tributarias | Fuera del MVP, salvo una determinista: el **NIT/Tax ID** del documento debe coincidir con el registrado del proveedor. |
-| Usuarios | Sin autenticación. Un selector de nombre de aprobador en la UI. |
+| Usuarios | Un solo usuario: el **admin**, con usuario y contraseña en `.env`. Es quien aprueba, crea reglas y ve los costos. Sin registro ni roles. |
 | Correo (reemplaza a Slack) | **Todo por correo**, con un Gmail dedicado y contraseña de aplicación. Entrada por **IMAP** (el worker revisa cada 10 s); salida por **SMTP** (aviso de escalación y respuesta al remitente con la decisión). Sin Slack. |
 | Feedback loop | Entra al MVP: el agente **propone** reglas; el humano las activa. |
 | Generación de edge cases por LLM | Fuera del MVP. |
@@ -141,6 +141,16 @@ docker-compose.yml
 - RF-08.5 Las propuestas quedan en `rule_proposal` con estado PENDING. El LLM no tiene tool para crear reglas activas.
 - RF-08.6 Pantalla Proposals: muestra regla propuesta, razonamiento y facturas de evidencia. Aceptar inserta en `rule` con `source = AGENT`. Rechazar silencia ese patrón 30 días.
 
+### RF-08b Medición de consumo por operación
+- RF-08b.1 La unidad de medida es la **operación**, no la factura. Tipos: `PROCESS_INVOICE`, `PROPOSE_RULES`, `CHAT_QUESTION`, `RULE_DRAFT`. Cada operación tiene un `run_id`.
+- RF-08b.2 Cada llamada al LLM se registra bajo su operación con los datos de `usage_metadata` de la respuesta: tokens de entrada, tokens de salida, modelo, propósito (extraer, explicar, proponer, responder), latencia y costo en USD calculado con una tabla de precios por modelo.
+- RF-08b.3 Una factura reprocesada genera una operación nueva con su propio costo; nunca se suma a la anterior.
+- RF-08b.4 La trazabilidad de cada factura muestra el costo y la duración de su operación ("Esta operación costó USD 0.0011 y 2.3 s").
+- RF-08b.5 Un resumen muestra el costo promedio, total y número de operaciones por tipo.
+- RF-08b.6 Si el registro de consumo falla, la operación sigue; se registra el error.
+- RF-08b.7 **Pantalla de Costos (solo el admin):** hay un único usuario, el administrador, que ve: gasto total del día y del mes en USD, número de operaciones, costo promedio por tipo de operación, tokens consumidos y la lista de las últimas operaciones con su costo, duración y link a la factura cuando aplique. Es de solo lectura.
+- RF-08b.8 Acceso: un solo usuario admin con credenciales en `.env` (usuario y contraseña). Sin registro, sin roles ni multiusuario.
+
 ### RF-09 Pantallas (Next.js + shadcn)
 
 - RF-09.0 **Mesa de trabajo en tiempo real (WebSockets):** la pantalla principal mantiene una conexión WebSocket con el backend (`/ws/mesa`). El servidor emite eventos `invoice.received`, `invoice.extracted`, `invoice.decided` y `proposal.created`; la Mesa actualiza la tarjeta de la factura en vivo (recibida → leyendo → evaluando reglas → decidida) sin recargar. Si la conexión cae, reconecta sola y, mientras tanto, consulta la API cada 5 segundos.
@@ -154,7 +164,7 @@ docker-compose.yml
 
 ---
 
-## 6. Reglas iniciales de FacturaYa (seed)
+## 6. Reglas iniciales de Nortech Labs (seed)
 
 | # | Regla | Tipo | Parámetro | Efecto |
 |---|---|---|---|---|
@@ -190,6 +200,7 @@ Base: `schema.sql` entregado anteriormente, con estos cambios:
 4. `decision`: agregar `status (FINAL|PENDING_HUMAN)`.
 5. Agregar `fx_rate (currency PK, rate_to_usd, as_of)`.
 6. `company` pasa a `settings` (una sola fila): `approval_threshold`, `proposal_cron`, `slack_webhook`.
+6b. Agregar una sola tabla `llm_usage (id PK, run_id, operation, invoice_id NULL, purpose, model, input_tokens, output_tokens, cost_usd, latency_ms, created_at)`. `run_id` agrupa las llamadas de una operación (sin tabla propia); el costo por operación sale con `GROUP BY run_id`. Los precios por modelo viven en un diccionario en el código, no en la BD.
 7. `rule`: agregar `natural_language TEXT` (lo que escribió el usuario o el razonamiento del agente).
 8. Mantener `rule`, `rule_condition`, `rule_condition_value`, `invoice_field`, `operator`, `decision_rule_hit`, `approval`, `rule_proposal`, `rule_proposal_evidence`.
 
@@ -263,7 +274,7 @@ Orden de corte si falta tiempo: primero cae `CONDITION` con ALLOW, luego Configu
 
 ## 12. Guion del video demo
 
-1. Pantalla de reglas de FacturaYa (20 s).
+1. Pantalla de reglas de Nortech Labs (20 s).
 2. Subir 3 facturas: una normal, un duplicado, una sobre el umbral (60 s).
 3. Enviar una factura por correo desde el celular; aparece en la Mesa en vivo y llega la respuesta al hilo con la explicación (40 s).
 4. Aprobar la escalada; disparar el job; aparece la propuesta en Proposals; aceptarla (50 s).

@@ -1,0 +1,226 @@
+<title>FacturaYa Data Model</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single column of three diagram panels, each with a one-line purpose and its key rules beside it. */
+:root {
+  --bg: #fafafa; --surface: #ffffff; --fg: #0b0b0f; --muted: #5d5d6b; --line: #e4e3ea;
+  --accent: #5b3df5; --accent-soft: #eeeaff;
+  --display: "Manrope", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b0b0f; --surface: #141419; --fg: #f3f3f6; --muted: #a3a3b2; --line: #2a2a33;
+  --accent: #8b75ff; --accent-soft: #1f1a3d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b0b0f; --surface: #141419; --fg: #f3f3f6; --muted: #a3a3b2; --line: #2a2a33;
+  --accent: #8b75ff; --accent-soft: #1f1a3d; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+main { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.lead { color: var(--muted); max-width: 65ch; margin: 6px 0 0; }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 14px; min-width: 0; }
+h2 { font-size: 18px; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+h2 small { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.diagram { overflow-x: auto; background: var(--bg); border-radius: 10px; padding: 12px; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 80ch; }
+code { font: 13px var(--mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 13px var(--mono); }
+.flow span { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+.flow b { color: var(--accent); }
+</style>
+<main>
+  <header>
+    <h1>FacturaYa <span>·</span> modelo de datos</h1>
+    <p class="lead">Supabase (Postgres). Salidas del agente: Pagar, Frenar, Escalar (<code>PAY | HOLD | ESCALATE</code>). Las reglas se escriben sobre vistas registradas en un catálogo, así que una fuente nueva no toca el código del motor.</p>
+  </header>
+
+  <section>
+    <h2><small>1</small>Factura y decisión</h2>
+    <div class="diagram"><pre class="mermaid">
+erDiagram
+  VENDOR ||--o{ PURCHASE_ORDER : "emite contra"
+  VENDOR |o--o{ INVOICE : "resuelto por NIT o nombre"
+  INVOICE ||--|| DECISION : "una decisión"
+  DECISION ||--o{ DECISION_RULE_HIT : "trazabilidad"
+  DECISION ||--o| APPROVAL : "si escala o frena"
+  INVOICE ||--o{ NOTIFICATION : "correo"
+  VENDOR {
+    uuid id PK
+    text name
+    text tax_id "NIT / RFC / CNPJ"
+    text country "CO MX BR US"
+    text currency
+    text bank_rail "ACH WIRE BRE_B SPEI PIX"
+    text bank_account
+    text status "ALLOWED BLOCKED"
+  }
+  PURCHASE_ORDER {
+    uuid id PK
+    uuid vendor_id FK
+    text po_number UK
+    numeric amount
+    text currency
+    numeric tolerance_pct
+    text status "OPEN CLOSED"
+  }
+  BUDGET {
+    date period PK "presupuesto global del mes"
+    numeric amount_usd
+  }
+  FX_RATE {
+    text currency PK
+    numeric rate_to_usd
+    date as_of
+  }
+  INVOICE {
+    uuid id PK
+    text file_sha256 UK "idempotencia"
+    text source "EMAIL UPLOAD CHAT"
+    text status "RECEIVED EXTRACTING EVALUATING DECIDED FAILED"
+    uuid vendor_id FK
+    text vendor_name_raw
+    text vendor_tax_id
+    text invoice_number
+    text po_number
+    text bank_account
+    numeric amount
+    text currency
+    numeric amount_usd
+    date issue_date
+    date due_date
+    numeric confidence
+  }
+  DECISION {
+    uuid id PK
+    uuid invoice_id FK
+    text outcome "PAY HOLD ESCALATE"
+    text status "FINAL PENDING_HUMAN RESOLVED"
+    text explanation
+    text explained_by "LLM TEMPLATE"
+  }
+  DECISION_RULE_HIT {
+    uuid decision_id FK
+    uuid rule_id FK
+    text result "FIRED PASSED OVERRIDDEN"
+    jsonb observed
+    jsonb threshold
+  }
+  APPROVAL {
+    uuid decision_id FK
+    text verdict "APPROVED REJECTED"
+    text note
+    text approver
+    uuid reviewed_in_operation_id FK
+  }
+  NOTIFICATION {
+    uuid invoice_id FK
+    text kind "ESCALATION REPLY"
+    text status "SENT FAILED"
+    text error
+  }
+    </pre></div>
+    <ul>
+      <li>Un archivo repetido no crea otra factura: <code>file_sha256</code> es único.</li>
+      <li><code>decision_rule_hit</code> guarda cada regla evaluada con lo observado y el límite, así la decisión se explica sin el LLM.</li>
+      <li>El motor decide una factura a la vez (<code>pg_advisory_xact_lock</code>), para que dos facturas no gasten el mismo saldo.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><small>2</small>Reglas y catálogo extensible</h2>
+    <div class="diagram"><pre class="mermaid">
+erDiagram
+  RULE ||--|{ RULE_CONDITION : "AND"
+  RULE_SOURCE ||--o{ RULE_CONDITION : "columna de"
+  RULE_SOURCE ||--|| FACT_VIEW : "registra"
+  RULE ||--o{ DECISION_RULE_HIT : "disparó"
+  RULE_PROPOSAL |o--o| RULE : "al aceptar"
+  RULE {
+    uuid id PK
+    text name
+    text natural_language
+    text effect "ALLOW ESCALATE HOLD"
+    bool overridable
+    text origin "HUMAN AGENT"
+    text proposed_by
+    timestamptz proposed_at
+    text approved_by
+    timestamptz approved_at "entra en vigor"
+    bool active
+    uuid replaces_rule_id FK
+  }
+  RULE_CONDITION {
+    uuid rule_id FK
+    text source FK
+    text column_name
+    text operator "EQ NEQ GT GTE LT IN BETWEEN IS_TRUE"
+    jsonb value
+  }
+  RULE_SOURCE {
+    text name PK "nombre de la vista"
+    text label
+    text description
+    bool active
+  }
+  FACT_VIEW {
+    uuid invoice_id "una fila por factura"
+    any columnas "comentadas en español"
+  }
+  RULE_PROPOSAL {
+    uuid id PK
+    uuid operation_id FK
+    text status "PENDING ACCEPTED REJECTED"
+    jsonb conditions
+    text rationale
+    uuid_array evidence_invoice_ids
+    uuid created_rule_id FK
+  }
+    </pre></div>
+    <ul>
+      <li>Vistas iniciales: <code>fact_factura</code>, <code>fact_proveedor</code>, <code>fact_orden</code>, <code>fact_presupuesto</code> (saldo global del mes). Las columnas se leen de <code>information_schema</code>, con su <code>COMMENT ON COLUMN</code>.</li>
+      <li>Un ALLOW solo cancela escalaciones de reglas <code>overridable</code>. Nunca cancela un Frenar ni el umbral de aprobación humana.</li>
+      <li>Un dato faltante siempre escala, nunca paga.</li>
+    </ul>
+    <div class="flow">
+      <span>ERP → <b>inventory_receipt</b></span>→
+      <span>vista <b>fact_inventario</b></span>→
+      <span>fila en <b>rule_source</b></span>→
+      <span>Gemini: listar_fuentes · describir_fuente · redactar_regla</span>→
+      <span>tú confirmas</span>
+    </div>
+  </section>
+
+  <section>
+    <h2><small>3</small>Operaciones y costos</h2>
+    <div class="diagram"><pre class="mermaid">
+erDiagram
+  OPERATION ||--o{ LLM_USAGE : "llamadas"
+  OPERATION ||--o{ RULE_PROPOSAL : "propone"
+  OPERATION ||--o{ APPROVAL : "revisó"
+  INVOICE |o--o{ OPERATION : "procesada en"
+  OPERATION {
+    uuid id PK
+    text type "PROCESS_INVOICE PROPOSE_RULES CHAT RULE_DRAFT"
+    text status "RUNNING DONE FAILED"
+    uuid invoice_id FK
+    timestamptz started_at
+    timestamptz finished_at
+  }
+  LLM_USAGE {
+    uuid operation_id FK
+    text purpose
+    text model
+    int input_tokens
+    int output_tokens
+    numeric cost_usd
+    int latency_ms
+  }
+    </pre></div>
+    <ul>
+      <li>El botón "Proponer reglas" crea una operación <code>PROPOSE_RULES</code>. Un índice único impide dos corridas a la vez.</li>
+      <li>Al terminar bien, las 20 resoluciones revisadas quedan marcadas con <code>reviewed_in_operation_id</code>. Si falla, no se marca nada y se reintentan.</li>
+    </ul>
+  </section>
+</main>
