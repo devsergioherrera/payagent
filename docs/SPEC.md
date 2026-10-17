@@ -9,7 +9,7 @@ Versión 1.0 · 17 oct 2026 · Entrega: domingo 18 oct, 11:59 a. m. (link GitHub
 | Tema | Decisión |
 |---|---|
 | Equipo | Una persona + subagentes. Todo lo no listado aquí queda fuera. |
-| Empresa | Una sola empresa ficticia: **Nortech Labs Inc.** (EE. UU., moneda base USD). Sin multiempresa. |
+| Empresa | Una sola empresa ficticia: **FacturaYa** (EE. UU., moneda base USD). Sin multiempresa. |
 | Lo acordado | **Orden de compra (PO)**. No existe tabla de contratos. |
 | Áreas | Categoría de la factura **con presupuesto mensual por área** (Compras, Costos, Materia Prima, Marketing). |
 | Facturas vencidas | Se **escalan** si pasan el resto de validaciones. |
@@ -154,7 +154,7 @@ docker-compose.yml
 
 ---
 
-## 6. Reglas iniciales de Nortech Labs (seed)
+## 6. Reglas iniciales de FacturaYa (seed)
 
 | # | Regla | Tipo | Parámetro | Efecto |
 |---|---|---|---|---|
@@ -263,7 +263,7 @@ Orden de corte si falta tiempo: primero cae `CONDITION` con ALLOW, luego Configu
 
 ## 12. Guion del video demo
 
-1. Pantalla de reglas de Nortech Labs (20 s).
+1. Pantalla de reglas de FacturaYa (20 s).
 2. Subir 3 facturas: una normal, un duplicado, una sobre el umbral (60 s).
 3. Enviar una factura por correo desde el celular; aparece en la Mesa en vivo y llega la respuesta al hilo con la explicación (40 s).
 4. Aprobar la escalada; disparar el job; aparece la propuesta en Proposals; aceptarla (50 s).
