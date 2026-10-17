@@ -28,7 +28,7 @@ Lo importante es el agente: decide bien, explica cada decisión y aprende reglas
 
 | # | Regla | Condición | Efecto |
 |---|---|---|---|
-| 1 | Proveedor no registrado | `invoice.vendor_id IS NULL` | Escalar |
+| 1 | Proveedor no registrado | `invoice.vendor_id IS NULL` | Escalar, no overridable |
 | 2 | Proveedor bloqueado | `vendor.status = BLOCKED` | Frenar |
 | 3 | Cuenta bancaria distinta | `invoice.bank_account ≠ vendor.bank_account` | Escalar, no overridable |
 | 4 | NIT distinto | `invoice.vendor_tax_id ≠ vendor.tax_id` | Escalar |
@@ -37,14 +37,18 @@ Lo importante es el agente: decide bien, explica cada decisión y aprende reglas
 | 7 | Presupuesto del mes | `budget_status.saldo_despues_usd < 0` | Frenar |
 | 8 | Duplicado exacto | `invoice_checks.duplicada = true` | Frenar |
 | 9 | Posible duplicado (30 días) | `invoice_checks.similares_30d > 0` | Escalar |
-| 10 | Sin orden de compra | `invoice.po_number IS NULL` | Escalar |
-| 11 | Fuera de tolerancia de la orden | `invoice_checks.desviacion_oc_pct > 5` | Escalar |
-| 12 | Moneda distinta a la orden | `invoice.currency ≠ purchase_order.currency` | Escalar |
+| 10 | Sin orden de compra válida | `po_check.orden_encontrada = false` | Escalar |
+| 11 | Fuera de tolerancia de la orden | `po_check.orden_encontrada = true` y `po_check.desviacion_pct > 5` | Escalar |
+| 12 | Moneda distinta a la orden | `po_check.orden_encontrada = true` y `po_check.moneda_coincide = false` | Escalar |
 | 13 | Faltan datos | `invoice_checks.campos_faltantes > 0` | Escalar, no overridable |
 | 14 | Fecha fuera de rango | `invoice_checks.dias_emision` fuera de 0 a 90 | Escalar |
 | 15 | Factura vencida | `invoice_checks.dias_para_vencer < 0` | Escalar |
 
-Fail-closed: si una columna que usa una regla viene vacía, la regla escala.
+Semántica del motor (detalle en `backend/src/payagent/domain/engine.py`):
+- Las condiciones se evalúan en orden. La primera que no se cumple deja la regla en PASSED.
+- Si una fuente no tiene fila para la factura (por ejemplo `vendor` con proveedor no registrado), la regla queda NOT_APPLICABLE.
+- Si un valor necesario viene vacío, la regla queda MISSING_DATA y cuenta como disparada (fail-closed).
+- Sin reglas activas, la factura escala.
 
 ## Quién hace qué
 
@@ -55,7 +59,7 @@ Fail-closed: si una columna que usa una regla viene vacía, la regla escala.
 | Tareas mecánicas | Claude Haiku | README, seeds repetitivos, ajustes de copy. |
 | Frontend y datos de prueba | OpenCode (modelos free de OpenRouter) | Pantallas sobre tipos y mocks ya definidos, generación de facturas, mascota. |
 
-Cada vertical trabaja en su worktree `.claude/worktrees/<nombre>` (rama `worktree-<nombre>`), usa CodeGraph antes de grep, y entrega con tests verdes. El orquestador revisa el diff y hace el merge a `main`.
+**Ramas.** `main` es producción (CD). `develop` es la rama de integración. Cada vertical sale de `develop` en su worktree `.claude/worktrees/<nombre>` (rama `worktree-<nombre>`), usa CodeGraph antes de grep y entrega con tests verdes. El orquestador revisa el diff y la integra en `develop`. `develop` pasa a `main` solo en hitos probados en dev.
 
 ## Fase 0 · Contratos (orquestador, 17:30 a 20:00)
 

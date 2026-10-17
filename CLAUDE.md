@@ -42,6 +42,7 @@ Never run the dev email worker while production is up unless you mean to: both r
 
 `main` is production: whatever lands on `main` is deployed within minutes.
 
+0. `develop` is the integration branch. Verticals branch from it and merge back; `develop` goes to `main` only at tested milestones.
 1. Work on a branch in its own worktree: `.claude/worktrees/<name>` on branch `worktree-<name>` (e.g. `worktree-frontend`). Use `git -C` or absolute paths; don't `cd` between worktrees.
 2. Commit small, with Conventional Commits (`feat(email): ...`, `fix(engine): ...`, `build(docker): ...`).
 3. Before merging: tests pass (`cd backend && uv run --group dev pytest`) and the dev stack runs.
