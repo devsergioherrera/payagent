@@ -55,3 +55,11 @@ export function invoiceState(i: {
 }
 
 export const isProcessing = (status: string) => status !== "DECIDED" && status !== "FAILED";
+
+export function duration(ms: number) {
+  return `${new Intl.NumberFormat("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ms / 1000)} s`;
+}
+
+export function costUsd(v: number) {
+  return `USD ${new Intl.NumberFormat("es-CO", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v)}`;
+}

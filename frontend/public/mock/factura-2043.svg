@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" font-family="Helvetica, Arial, sans-serif">
+  <rect width="600" height="800" fill="#ffffff"/>
+  <text x="48" y="80" font-size="26" font-weight="700" fill="#1a1a1f">Servicios Cloud Andinos S.A.S.</text>
+  <text x="48" y="106" font-size="13" fill="#6b6b75">NIT 901.555.222-1 · Bogotá, Colombia</text>
+  <text x="552" y="80" font-size="22" font-weight="700" text-anchor="end" fill="#1a1a1f">FACTURA</text>
+  <text x="552" y="106" font-size="14" text-anchor="end" fill="#6b6b75">FV-2043</text>
+  <line x1="48" y1="136" x2="552" y2="136" stroke="#e2e2e8"/>
+  <g font-size="13" fill="#1a1a1f">
+    <text x="48" y="168" fill="#6b6b75">Emisión</text><text x="48" y="188">16 oct 2026</text>
+    <text x="220" y="168" fill="#6b6b75">Vencimiento</text><text x="220" y="188">30 oct 2026</text>
+    <text x="392" y="168" fill="#6b6b75">Orden de compra</text><text x="392" y="188">PO-1006</text>
+  </g>
+  <rect x="48" y="236" width="504" height="32" fill="#f4f4f7"/>
+  <g font-size="12" font-weight="700" fill="#1a1a1f"><text x="60" y="257">Descripción</text><text x="540" y="257" text-anchor="end">Importe (USD)</text></g>
+  <g font-size="13" fill="#1a1a1f">
+    <text x="60" y="296">Migración de infraestructura, fase 2</text><text x="540" y="296" text-anchor="end">9.800,00</text>
+    <text x="60" y="328">Soporte dedicado, octubre</text><text x="540" y="328" text-anchor="end">2.600,00</text>
+  </g>
+  <line x1="48" y1="352" x2="552" y2="352" stroke="#e2e2e8"/>
+  <text x="440" y="392" font-size="14" fill="#6b6b75" text-anchor="end">Total</text>
+  <text x="540" y="392" font-size="20" font-weight="700" text-anchor="end" fill="#1a1a1f">USD 12.400,00</text>
+  <text x="48" y="700" font-size="12" fill="#6b6b75">Pago por transferencia a la cuenta BCOL55522201</text>
+</svg>

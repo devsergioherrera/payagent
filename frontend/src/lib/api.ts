@@ -47,7 +47,9 @@ export const api = {
     return request<InvoiceSummary[]>(`/invoices?${qs}`);
   },
   invoice: (id: string) =>
-    USE_MOCKS ? mock<InvoiceDetail>(mocks.invoiceDetail) : request<InvoiceDetail>(`/invoices/${id}`),
+    USE_MOCKS
+      ? mock<InvoiceDetail>(mocks.invoiceDetails[id] ?? mocks.invoiceDetail)
+      : request<InvoiceDetail>(`/invoices/${id}`),
   upload: (file: File | null, text?: string) => {
     if (USE_MOCKS) return mock<Created>({ invoice_id: "i-2045", duplicate_of: null });
     const form = new FormData();
