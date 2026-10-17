@@ -11,7 +11,7 @@ export const OUTCOME_STYLE: Record<Outcome, string> = {
 
 export function money(amount: number | null | undefined, currency = "USD") {
   if (amount == null) return "—";
-  return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+  return new Intl.NumberFormat("es-CO", { style: "currency", currency, currencyDisplay: "code", maximumFractionDigits: 2 }).format(amount);
 }
 
 export function shortDate(iso: string | null | undefined) {
