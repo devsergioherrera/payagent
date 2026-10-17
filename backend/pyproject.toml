@@ -15,10 +15,16 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+<<<<<<< HEAD
     "pillow>=13.0.0",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "reportlab>=5.0.1",
+=======
+    "httpx>=0.28.1",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+>>>>>>> develop
 ]
 
 [build-system]
@@ -31,3 +37,4 @@ packages = ["src/payagent"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["db: runs against the real Supabase database"]

@@ -2,7 +2,7 @@ from email.message import EmailMessage
 
 from payagent.adapters.email.imap_source import documents_from_message
 from payagent.adapters.upload.storage import FileStorage
-from payagent.app.process_invoice import ProcessedInvoice, StoredDocument, process_invoice
+from payagent.app.process_invoice import AlreadyProcessed, ProcessedInvoice, StoredDocument, process_invoice
 from payagent.domain.decision import Outcome
 from payagent.ports.invoice_source import EmailOrigin
 
@@ -63,6 +63,8 @@ class FixedPipeline:
         self.calls: list[StoredDocument] = []
 
     def run(self, stored):
+        if any(c.sha256 == stored.sha256 for c in self.calls):
+            raise AlreadyProcessed(stored.sha256)
         self.calls.append(stored)
         return ProcessedInvoice("inv-1", self.outcome, "Todo en regla.", "Acme", "500", "USD")
 
@@ -115,3 +117,67 @@ def test_own_and_machine_senders_are_skipped():
     assert is_automated_sender("MAILER-DAEMON@googlemail.com", own)
     assert is_automated_sender("Facturaya.Pagos@gmail.com", own)
     assert not is_automated_sender("ap@vendor.test", own)
+
+
+class FakeLog:
+    def __init__(self):
+        self.rows: list[tuple] = []
+
+    def record(self, invoice_id, kind, recipient, status, error=None):
+        self.rows.append((invoice_id, kind, recipient, status, error))
+
+
+def _process(outcome, notifier, log, tmp_path):
+    return process_invoice(_doc(), FileStorage(tmp_path), FixedPipeline(outcome), notifier, "http://x", log, "boss@x.test")
+
+
+def test_every_mail_is_logged_with_recipient_and_status(tmp_path):
+    log = FakeLog()
+    _process(Outcome.ESCALATE, FakeNotifier(), log, tmp_path)
+    assert log.rows == [
+        ("inv-1", "ESCALATION", "boss@x.test", "SENT", None),
+        ("inv-1", "REPLY", "ap@vendor.test", "SENT", None),
+    ]
+
+
+def test_failed_mail_is_logged_with_its_error(tmp_path):
+    log = FakeLog()
+    _process(Outcome.ESCALATE, FakeNotifier(fail=True), log, tmp_path)
+    assert [r[3] for r in log.rows] == ["FAILED", "FAILED"]
+    assert "smtp down" in log.rows[0][4]
+
+
+def test_hold_also_escalates_with_its_own_subject(tmp_path):
+    notifier = FakeNotifier()
+    _process(Outcome.HOLD, notifier, FakeLog(), tmp_path)
+    assert notifier.escalations[0].startswith("[Frenada]")
+
+
+def test_escalation_body_has_the_facts_a_human_needs(tmp_path):
+    from payagent.app.process_invoice import _escalation_body
+
+    result = ProcessedInvoice("inv-1", Outcome.ESCALATE, "Escalada: algo.", "Acme", "500", "EUR", "540.00", "Límite por pago")
+    body = _escalation_body(result, _doc(), "http://x/facturas/inv-1")
+    for expected in ("Acme", "500 EUR", "USD 540.00", "Límite por pago", "Escalada: algo.", "http://x/facturas/inv-1"):
+        assert expected in body
+
+
+def test_paid_invoice_sends_no_escalation(tmp_path):
+    log = FakeLog()
+    _process(Outcome.PAY, FakeNotifier(), log, tmp_path)
+    assert [r[1] for r in log.rows] == ["REPLY"]
+
+
+def test_inbox_files_are_handled_in_order_and_moved(tmp_path):
+    from payagent.ports.invoice_source import SourceType
+    from payagent.worker.main import poll_inbox
+
+    (tmp_path / "b.txt").write_text("two")
+    (tmp_path / "a.pdf").write_bytes(b"%PDF")
+    (tmp_path / ".hidden").write_text("x")
+    seen = []
+    assert poll_inbox(tmp_path, seen.append) == 2
+    assert [d.filename for d in seen] == ["a.pdf", "b.txt"]
+    assert seen[0].source_type is SourceType.INBOX and seen[0].content_type == "application/pdf"
+    assert sorted(p.name for p in (tmp_path / "processed").iterdir()) == ["a.pdf", "b.txt"]
+    assert poll_inbox(tmp_path, seen.append) == 0

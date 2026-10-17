@@ -27,6 +27,10 @@ class Invoices(Protocol):
         """New invoice in RECEIVED. None when the sha256 already exists (idempotency)."""
         ...
 
+    def retryable(self, sha256: str) -> str | None:
+        """Id of the invoice for this file if its document could not be read and no human resolved it yet."""
+        ...
+
     def set_status(self, invoice_id: str, status: InvoiceStatus, error: str | None = None) -> None: ...
 
     def save_extraction(self, invoice_id: str, extracted: ExtractedInvoice) -> None:

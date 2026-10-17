@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {
@@ -11,6 +8,10 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  // Behind Caddy /api is routed to the backend. Running `next dev` alone, set API_URL=http://localhost:8000.
+  async rewrites() {
+    return process.env.API_URL ? [{ source: "/api/:path*", destination: `${process.env.API_URL}/:path*` }] : [];
   },
 };
 
