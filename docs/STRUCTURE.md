@@ -8,7 +8,8 @@ Folder layout for the payments agent described in [SPEC.md](SPEC.md). Structure 
 hackathon/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                  # pytest on every push/PR (safety invariants block the merge)
+│       ├── ci.yml                  # pytest on every push/PR (safety invariants block the merge)
+│       └── cd.yml                  # push to main -> OIDC role -> SSM runs deploy/deploy.sh on EC2
 │
 ├── backend/                        # Python 3.12 + FastAPI. One image, two processes (api, worker)
 │   ├── Dockerfile
@@ -102,7 +103,8 @@ hackathon/
 ├── docs/
 │   ├── SPEC.md
 │   └── STRUCTURE.md
-├── docker-compose.yml              # api, worker, frontend, caddy (same file local and server)
+├── docker-compose.yml              # production: api, worker, frontend, caddy (what CD runs)
+├── docker-compose.dev.yml          # dev override: hot reload, ports 3000/8000, worker only with --profile email
 ├── .env.example
 ├── .gitignore
 └── README.md

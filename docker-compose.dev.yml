@@ -1,0 +1,30 @@
+# Dev on top of docker-compose.yml: code is mounted and reloads on save.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Open http://localhost (Caddy), or the services directly on :3000 and :8000.
+# The email worker is off by default so it doesn't steal mail from production:
+#   ... up --build --profile email
+services:
+  api:
+    command: ["uvicorn", "payagent.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./backend/src:/app/src
+    ports:
+      - "8000:8000"
+
+  worker:
+    profiles: [email]
+    command: ["watchfiles", "python -m payagent.worker.main", "/app/src"]
+    volumes:
+      - ./backend/src:/app/src
+
+  frontend:
+    build:
+      target: dev
+    environment:
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"

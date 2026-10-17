@@ -1,4 +1,5 @@
-# Same file locally and on the server. The only difference is DOMAIN in .env:
+# Production (what CD runs on the server). For dev with hot reload, add docker-compose.dev.yml.
+# The only difference between your laptop and the server is DOMAIN in .env:
 # empty -> http://localhost ; set (e.g. 164.92.10.5.sslip.io) -> HTTPS with an automatic certificate.
 x-backend: &backend
   build: ./backend
@@ -20,7 +21,9 @@ services:
     command: ["python", "-m", "payagent.worker.main"]
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: prod
     restart: unless-stopped
 
   caddy:
