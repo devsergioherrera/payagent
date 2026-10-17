@@ -29,7 +29,7 @@ def template_explanation(decision: Decision) -> str:
 
 
 def decision_prompt(decision: Decision, invoice_summary: str) -> str:
-    lines = [f"Factura: {invoice_summary}", f"Resultado: {decision.outcome.value}"]
+    lines = [f"Factura: {invoice_summary}", f"Decisión del agente: {_HEADLINE[decision.outcome]}"]
     fired = _fired(decision)
     if fired:
         lines.append("Reglas disparadas:")
