@@ -6,17 +6,10 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Section } from "./section";
 import { cn } from "@/lib/utils";
-import type { Outcome } from "@/lib/api-types";
 
-const COPY = {
-  ESCALATE: { title: "Este pago necesita tu aprobación", sub: null, approve: "Aprobar pago" },
-  HOLD: { title: "El agente frenó este pago", sub: "Frenada no es rechazada: puedes liberarlo o rechazarlo.", approve: "Liberar y pagar" },
-} as const;
-
-export function Decision({ id, outcome, onDone }: { id: string; outcome: Outcome | null; onDone: () => void }) {
+export function Decision({ id, onDone }: { id: string; onDone: () => void }) {
   const [note, setNote] = useState("");
   const [state, setState] = useState<{ busy: boolean; ok: boolean; message: string }>({ busy: false, ok: false, message: "" });
-  const copy = COPY[outcome === "HOLD" ? "HOLD" : "ESCALATE"];
 
   const submit = async (verdict: "APPROVED" | "REJECTED") => {
     if (verdict === "REJECTED" && !note.trim()) {
@@ -36,8 +29,7 @@ export function Decision({ id, outcome, onDone }: { id: string; outcome: Outcome
 
   return (
     <Section title="Tu decisión" icon={Gavel} className="border-brand/40">
-      <p className="text-sm font-semibold">{copy.title}</p>
-      {copy.sub && <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.sub}</p>}
+      <p className="text-sm font-semibold">Este pago necesita tu aprobación</p>
       <label htmlFor="resolve-note" className="mb-1.5 mt-3 block text-xs text-muted-foreground">Motivo (obligatorio si rechazas)</label>
       <textarea
         id="resolve-note"
@@ -50,7 +42,7 @@ export function Decision({ id, outcome, onDone }: { id: string; outcome: Outcome
       {state.message && <p className={cn("mt-2 text-sm", state.ok ? "text-pay" : "text-destructive")}>{state.message}</p>}
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Button variant="outline" className="h-9 border-hold/50 text-hold hover:bg-hold-soft hover:text-hold" disabled={state.busy} onClick={() => submit("REJECTED")}>Rechazar</Button>
-        <Button className="h-9 bg-pay text-white hover:bg-pay/90" disabled={state.busy} onClick={() => submit("APPROVED")}>{copy.approve}</Button>
+        <Button className="h-9 bg-pay text-white hover:bg-pay/90" disabled={state.busy} onClick={() => submit("APPROVED")}>Aprobar pago</Button>
       </div>
     </Section>
   );

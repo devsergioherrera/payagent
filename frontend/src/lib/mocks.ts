@@ -5,7 +5,7 @@ import type {
 } from "./api-types";
 
 export const summary: Summary = {
-  paid: 6, held: 2, escalated: 3, pending_human: 3, processing: 1,
+  paid: 6, held: 2, escalated: 3, pending_human: 2, processing: 1,
   autonomy_pct: 54.5, email_connected: true, email_checked_at: "2026-10-17T21:40:08Z",
 };
 
@@ -21,8 +21,8 @@ export const invoices: InvoiceSummary[] = [
   inv({ id: "i-2043", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2043", amount: 12400, amount_usd: 12400, outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Umbral de aprobación humana" }),
   inv({ id: "i-2042", vendor_name: "Logística del Bajío S.A. de C.V.", invoice_number: "A-3391", amount: 58000, currency: "MXN", amount_usd: 3190, source: "UPLOAD" }),
   inv({ id: "i-2041", vendor_name: "Tecnologia Paulista Ltda.", invoice_number: "NF-7781", amount: 15000, currency: "BRL", amount_usd: 2700 }),
-  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "PENDING_HUMAN", headline: "Presupuesto del mes" }),
-  inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, outcome: "HOLD", decision_status: "RESOLVED", headline: "Proveedor bloqueado", decided_by: "HUMAN" }),
+  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "FINAL", headline: "Presupuesto del mes" }),
+  inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, outcome: "HOLD", decision_status: "FINAL", headline: "Proveedor bloqueado" }),
   inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT" }),
 ];
 
@@ -104,27 +104,35 @@ export const invoiceDetailHold: InvoiceDetail = {
     { label: "Factura recibida", detail: "Carga manual", at: "2026-10-17T15:40:00Z" },
     { label: "Datos extraídos", detail: null, at: "2026-10-17T15:40:05Z" },
     { label: "Decisión: Frenada", detail: "Presupuesto del mes", at: "2026-10-17T15:40:07Z" },
-    { label: "Notificación enviada", detail: "sergio@facturaya.co", at: "2026-10-17T15:40:09Z" },
   ],
   cost: { cost_usd: 0.0018, duration_ms: 3900, input_tokens: 3010, output_tokens: 420 },
   file_url: "/mock/factura-2040.txt",
   error: null,
 };
 
-// Same case once the owner released it: shows the resolved state.
-export const invoiceDetailResolved: InvoiceDetail = {
+// A second final hold, to open from the list.
+export const invoiceDetailHold2: InvoiceDetail = {
   ...invoiceDetailHold,
-  summary: { ...invoices[6], vendor_name: "Comercializadora Aurora S.A.S.", headline: "Presupuesto del mes" },
-  approval: { verdict: "APPROVED", note: "Gasto autorizado por cierre de trimestre", approver: "Sergio", created_at: "2026-10-17T22:10:00Z" },
+  summary: { ...invoices[6], headline: "Proveedor bloqueado" },
+};
+
+// A paid invoice: every rule passed.
+export const invoiceDetailPay: InvoiceDetail = {
+  ...invoiceDetail,
+  summary: invoices[3],
+  explanation: "La factura de Logística del Bajío cumple todas las reglas: proveedor registrado, orden de compra vigente y monto dentro del límite. El agente la pagó sin intervención.",
+  hits: invoiceDetail.hits.map((h) => ({ ...h, result: h.result === "FIRED" ? "PASSED" as const : h.result })),
   timeline: [
-    ...invoiceDetailHold.timeline,
-    { label: "Resolución humana: aprobada", detail: "Sergio · Gasto autorizado por cierre de trimestre", at: "2026-10-17T22:10:00Z" },
+    { label: "Factura recibida", detail: "Carga manual", at: "2026-10-17T14:12:00Z" },
+    { label: "Datos extraídos", detail: null, at: "2026-10-17T14:12:04Z" },
+    { label: "Decisión: Pagada", detail: null, at: "2026-10-17T14:12:05Z" },
   ],
 };
 
 export const invoiceDetails: Record<string, InvoiceDetail> = {
   "i-2040": invoiceDetailHold,
-  "i-2039": invoiceDetailResolved,
+  "i-2039": invoiceDetailHold2,
+  "i-2042": invoiceDetailPay,
 };
 
 export const rules: RuleView[] = [
@@ -299,15 +307,21 @@ export function purchaseOrderPage(f: {
   return slice(all, f);
 }
 
-export function invoicesFor(f: { outcome?: string; vendor_id?: string; limit?: number; offset?: number }) {
+export function invoicesFor(f: {
+  outcome?: string; status?: string; q?: string; from?: string; to?: string; vendor_id?: string; limit?: number; offset?: number;
+}) {
   let all = invoices.filter((i) => !f.outcome || i.outcome === f.outcome);
+  if (f.status === "PENDING") all = all.filter((i) => i.decision_status === "PENDING_HUMAN");
+  if (f.q) all = all.filter((i) => `${i.vendor_name} ${i.invoice_number} ${i.amount}`.toLowerCase().includes(f.q!.toLowerCase()));
+  if (f.from) all = all.filter((i) => i.received_at.slice(0, 10) >= f.from!);
+  if (f.to) all = all.filter((i) => i.received_at.slice(0, 10) <= f.to!);
   if (f.vendor_id) {
     const v = vendors.find((x) => x.id === f.vendor_id);
     const own = all.filter((i) => i.vendor_name === v?.name);
     // Generated vendors have no matching sample invoice: rotate a few so the detail pane has content.
     all = own.length ? own : all.slice(Math.max(0, vendors.findIndex((x) => x.id === f.vendor_id)) % 4).slice(0, 3);
   }
-  return all.slice(f.offset ?? 0, (f.offset ?? 0) + (f.limit ?? 200));
+  return { total: all.length, items: all.slice(f.offset ?? 0, (f.offset ?? 0) + (f.limit ?? 200)) };
 }
 
 export function purchaseOrderDetail(poNumber: string): PurchaseOrderDetail {

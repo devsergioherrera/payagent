@@ -51,7 +51,7 @@ export function invoiceState(i: {
   const pending = i.decision_status === "PENDING_HUMAN";
   if (i.outcome === "PAY") return i.decided_by === "HUMAN" ? "Pagada con tu aprobación" : "Pagada por el agente";
   if (i.outcome === "ESCALATE") return pending ? "Espera tu decisión" : "Escalada y resuelta";
-  return pending ? "Frenada, espera tu decisión" : "Frenada y resuelta";
+  return "Frenada por el agente";
 }
 
 export const isProcessing = (status: string) => status !== "DECIDED" && status !== "FAILED";
