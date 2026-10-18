@@ -19,7 +19,7 @@ def clean_rows() -> dict:
         "budget_status": {"saldo_despues_usd": Decimal("100")},
         "invoice_checks": {"duplicada": False, "similares_30d": 0, "campos_faltantes": 0,
                            "dias_emision": 10, "dias_para_vencer": 20},
-        "po_check": {"orden_encontrada": True, "desviacion_pct": Decimal("1"), "moneda_coincide": True},
+        "po_check": {"orden_encontrada": True, "desviacion_pct": Decimal("1"), "moneda_coincide": True, "saldo_oc_despues_pct": Decimal("40")},
     }
 
 
@@ -51,6 +51,7 @@ CASES = {
     12: (dict(po_check={"moneda_coincide": False}), dict()),
     13: (dict(invoice_checks={"campos_faltantes": 2}), dict()),
     14: (dict(invoice_checks={"dias_emision": -1}), dict(invoice_checks={"dias_emision": 90})),
+    16: (dict(po_check={"saldo_oc_despues_pct": Decimal("-5.1")}), dict(po_check={"saldo_oc_despues_pct": -5})),
     15: (dict(invoice={"due_date": "2026-10-10"}, invoice_checks={"dias_para_vencer": -1}), dict(invoice_checks={"dias_para_vencer": 0})),
 }
 
@@ -103,7 +104,7 @@ def test_allow_never_overrides_hard_rules():
     assert evaluate(rules, facts(**CASES[1][0])).outcome is Outcome.ESCALATE
 
 
-@pytest.mark.parametrize("n", [4, 5, 9, 10, 11, 12, 14, 15])
+@pytest.mark.parametrize("n", [4, 5, 9, 10, 11, 12, 14, 15, 16])
 def test_allow_cancels_overridable_escalate(n):
     decision = evaluate([*seed_rules(), allow_all()], facts(**CASES[n][0]))
     hit = next(h for h in decision.hits if h.rule_id.endswith(f"{n:02d}"))
@@ -176,7 +177,7 @@ def test_observed_and_threshold():
 
 
 def test_northwind_case():
-    no_po = dict(po_check={"orden_encontrada": False, "desviacion_pct": None, "moneda_coincide": None})
+    no_po = dict(po_check={"orden_encontrada": False, "desviacion_pct": None, "moneda_coincide": None, "saldo_oc_despues_pct": None})
     decision = evaluate(seed_rules(), facts(**no_po))
     assert decision.outcome is Outcome.ESCALATE
     assert hits_by_number(decision)[10] is HitResult.FIRED
