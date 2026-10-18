@@ -23,7 +23,7 @@ interface Props {
   proposal: ProposalView;
   onThinking: (thinking: boolean) => void;
   onLearned: () => void;
-  onResolved: () => void;
+  onResolved: (kind: "accept" | "reject") => void;
 }
 
 export function AgentMessage({ proposal, onThinking, onLearned, onResolved }: Props) {
@@ -53,7 +53,7 @@ export function AgentMessage({ proposal, onThinking, onLearned, onResolved }: Pr
       } else {
         toast("Entendido, no lo aplicaré");
       }
-      onResolved();
+      onResolved(kind);
     } catch (e) {
       toast.error(errorMessage(e));
       setBusy(false);

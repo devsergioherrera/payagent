@@ -392,8 +392,8 @@ def build_trace(
     for p in accepted:
         if p.effect is Effect.ALLOW:
             steps.append(TraceStep(
-                label="Comprobé que no anula ningún Frenar ni el umbral de aprobación",
-                detail="Una regla de permitir solo levanta escalaciones anulables",
+                label="Límites que respeta",
+                detail="Una excepción solo levanta escalaciones anulables: nunca anula un Frenar ni el umbral de aprobación.",
             ))
         steps.append(TraceStep(label="Propuesta lista", detail=p.name))
     if not accepted:
