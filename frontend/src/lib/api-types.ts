@@ -44,10 +44,13 @@ export interface Extracted {
 
 export interface TimelineStep { label: string; detail: string | null; at: string }
 
+export interface LearnedRule { id: string; name: string; approved_at: string }
+
 export interface InvoiceDetail {
   summary: InvoiceSummary; vendor_id: string | null; extracted: Extracted; explanation: string | null;
   hits: Hit[]; approval: Approval | null; timeline: TimelineStep[]; cost: OperationCost | null;
   file_url: string; error: string | null;
+  learned_rule: LearnedRule | null; // an agent-learned rule that let this paid invoice through
 }
 
 export interface ResolveRequest { verdict: "APPROVED" | "REJECTED"; note?: string | null }
@@ -76,11 +79,13 @@ export interface DraftResponse { draft: RuleDraft | null; error: string | null }
 export interface ColumnView { name: string; data_type: "number" | "text" | "boolean" | "date"; description: string }
 export interface RuleSourceView { name: string; label: string; description: string; columns: ColumnView[] }
 
+export interface TraceStep { label: string; detail: string | null }
 export interface ProposalView {
   id: string; draft: RuleDraft; rationale: string; evidence: InvoiceSummary[];
   status: "PENDING" | "ACCEPTED" | "REJECTED"; created_at: string;
+  trace: TraceStep[]; // how the run that created it reached it
 }
-export interface ProposalRun { operation_id: string; reviewed: number; created: ProposalView[] }
+export interface ProposalRun { operation_id: string; reviewed: number; created: ProposalView[]; trace: TraceStep[] }
 
 export interface PurchaseOrderView {
   po_number: string; amount: number; currency: string; status: "OPEN" | "CLOSED"; description: string | null;
@@ -116,7 +121,7 @@ export interface ChatCard {
 }
 export interface ChatReply { text: string; cards: ChatCard[]; invoice_id?: string | null }
 
-export type ActivityKind = Exclude<InvoiceState, "PROCESSING" | "FAILED"> | "PROPOSAL" | "EMAIL_FAILED";
+export type ActivityKind = Exclude<InvoiceState, "PROCESSING" | "FAILED"> | "LEARNED" | "EMAIL_FAILED";
 export interface ActivityItem {
   id: string; kind: ActivityKind; title: string; detail: string;
   invoice_id?: string | null; proposal_id?: string | null; at: string;

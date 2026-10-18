@@ -1,6 +1,8 @@
 "use client";
 
-import { dayTime } from "@/lib/format";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
+import { dayMonth, dayTime } from "@/lib/format";
 import { STATE } from "@/lib/state";
 import { cn } from "@/lib/utils";
 import { Stepper } from "./stepper";
@@ -13,7 +15,7 @@ export function decidingHit(hits: Hit[], outcome: Outcome | null): Hit | undefin
 }
 
 export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; processing: boolean }) {
-  const { summary, hits, explanation, approval } = invoice;
+  const { summary, hits, explanation, approval, learned_rule: learned } = invoice;
   const outcome = summary.outcome;
   const rule = decidingHit(hits, outcome);
   const { label: pillText, tone: pillStyle, icon: Icon } = STATE[summary.state];
@@ -33,6 +35,15 @@ export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; proce
           </span>
           <h2 className="min-w-0 text-base sm:truncate font-semibold tracking-tight">{title}</h2>
         </div>
+        {learned && !processing && (
+          <p className="mt-2 flex items-start gap-1.5 text-[13px] text-muted-foreground">
+            <Sparkles className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+            <span>
+              Pagada gracias a una regla que aprendió el agente el {dayMonth(learned.approved_at)}.{" "}
+              <Link href={`/reglas?rule=${learned.id}`} className="font-medium text-brand underline-offset-2 hover:underline">Ver la regla</Link>
+            </span>
+          </p>
+        )}
         {approval && !processing && (
           <p className="mt-2 text-sm font-medium">
             {dayTime(approval.created_at)}

@@ -31,6 +31,7 @@ Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va
 - Deploy nunca resetea datos; aplica migraciones pendientes antes de reiniciar.
 
 ## Historial
+- 18 oct W9: el agente nota patrones solo tras cada resolución y muestra su razonamiento real (traza en `operation.detail`, migración 011): mensaje en la Mesa, traza en Reglas y "regla aprendida" en la factura pagada.
 - 21:55 W7 integrado y verificado con datos reales: la Mesa dice "Aprobada por ti" y los chips cuentan por estado.
 - 21:45 Bitácora creada. W7 relanzado tras una interrupción.
 - 21:40 Fechas sin hora se mostraban un día antes (zona horaria): arreglado en `format.ts`.

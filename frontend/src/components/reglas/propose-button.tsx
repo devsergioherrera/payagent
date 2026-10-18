@@ -1,30 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
-import { toast } from "sonner";
-import { api, ApiError, errorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
-export function ProposeButton({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-
-  async function run() {
-    setBusy(true);
-    try {
-      const { created } = await api.runProposals();
-      toast(created.length ? `${created.length} ${created.length === 1 ? "propuesta nueva" : "propuestas nuevas"}` : "No hay patrones nuevos");
-      onDone();
-    } catch (e) {
-      toast.error(e instanceof ApiError && e.status === 409 ? "Ya hay una revisión en curso" : errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
+export function ProposeButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
   return (
-    <Button size="sm" variant="outline" onClick={run} disabled={busy} className="border-brand/40 text-brand hover:bg-brand-soft hover:text-brand">
-      {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+    <Button size="sm" variant="outline" onClick={onClick} disabled={busy} className="border-brand/40 text-brand hover:bg-brand-soft hover:text-brand active:scale-[0.98]">
+      {busy ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Sparkles />}
       {busy ? "Revisando…" : "Proponer reglas"}
     </Button>
   );
