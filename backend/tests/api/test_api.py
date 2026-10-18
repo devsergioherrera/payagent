@@ -152,6 +152,14 @@ def test_summary_vendors_costs(client: TestClient):
     assert "by_type" in client.get("/costs").json()
 
 
+def test_activity_feed(client: TestClient):
+    items = client.get("/activity?limit=5").json()
+    assert len(items) <= 5
+    assert all(set(i) >= {"id", "kind", "title", "detail", "at"} for i in items)
+    assert [i["at"] for i in items] == sorted((i["at"] for i in items), reverse=True)
+    assert client.get("/activity?limit=0").status_code == 422
+
+
 def test_rules_create_list_deactivate(client: TestClient, cleanup):
     sources = {s["name"] for s in client.get("/rule-sources").json()}
     assert "invoice" in sources

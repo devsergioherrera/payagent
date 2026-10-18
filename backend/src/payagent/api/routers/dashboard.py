@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from payagent.adapters.postgres.queries import ApiQueries, NotFound
 from payagent.api.deps import get_queries
-from payagent.api.schemas import Costs, Page, Summary, VendorView
+from payagent.api.schemas import ActivityItem, Costs, Page, Summary, VendorView
 from payagent.config import settings
 
 router = APIRouter()
@@ -33,3 +33,8 @@ def vendor(vendor_id: str, queries: ApiQueries = Depends(get_queries)) -> Vendor
 @router.get("/costs")
 def costs(queries: ApiQueries = Depends(get_queries)) -> Costs:
     return queries.costs()
+
+
+@router.get("/activity")
+def activity(limit: int = Query(20, ge=1, le=100), queries: ApiQueries = Depends(get_queries)) -> list[ActivityItem]:
+    return queries.activity(limit)

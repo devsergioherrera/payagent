@@ -8,6 +8,7 @@ from psycopg_pool import ConnectionPool
 
 from payagent.adapters.postgres.db import get_pool
 from payagent.api.schemas import (
+    ActivityItem,
     Approval,
     ColumnView,
     ConditionView,
@@ -541,6 +542,40 @@ class ApiQueries:
                     duration_ms=int(((o["finished_at"] or o["started_at"]) - o["started_at"]).total_seconds() * 1000),
                     input_tokens=int(o["tin"]), output_tokens=int(o["tout"]))) for o in recent],
         )
+
+    # ---- activity -------------------------------------------------------------------------------------------
+
+    def activity(self, limit: int) -> list[ActivityItem]:
+        with self._pool.connection() as conn:
+            rows = _rows(conn, """
+                select * from (
+                  select 'd' || d.id::text as id, case d.outcome when 'PAY' then 'PAID' when 'HOLD' then 'HELD' else 'ESCALATED' end as kind,
+                         coalesce(v.name, i.vendor_name_raw) as who, i.amount, i.currency, i.invoice_number as extra,
+                         i.id::text as invoice_id, null::text as proposal_id, d.decided_at as at
+                    from decision d join invoice i on i.id = d.invoice_id left join vendor v on v.id = i.vendor_id
+                  union all
+                  select 'p' || p.id::text, 'PROPOSAL', p.name, null, null, p.rationale, null, p.id::text, p.created_at
+                    from rule_proposal p where p.status = 'PENDING'
+                  union all
+                  select 'n' || n.id::text, 'EMAIL_FAILED', n.recipient, null, null, n.error, n.invoice_id::text, null, n.created_at
+                    from notification n where n.status = 'FAILED'
+                ) a order by at desc limit %s
+            """, (limit,))
+        return [self._activity(r) for r in rows]
+
+    @staticmethod
+    def _activity(r: dict) -> ActivityItem:
+        who = r["who"] or "Proveedor sin leer"
+        amount = f"{r['amount']:,.2f} {r['currency'] or ''}".strip() if r["amount"] is not None else ""
+        title, detail = {
+            "PAID": (f"Pagada: {who}", amount),
+            "HELD": (f"Frenada: {who}", amount),
+            "ESCALATED": (f"Espera tu decisión: {who}", amount),
+            "PROPOSAL": ("Regla propuesta", f"{who}"),
+            "EMAIL_FAILED": ("No se pudo enviar un correo", f"A {who}"),
+        }[r["kind"]]
+        return ActivityItem(id=r["id"], kind=r["kind"], title=title, detail=detail,
+                            invoice_id=r["invoice_id"], proposal_id=r["proposal_id"], at=r["at"])
 
 
 _OUTCOME_LABEL = {"PAY": "Pagada", "HOLD": "Frenada", "ESCALATE": "Escalada"}
