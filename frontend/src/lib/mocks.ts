@@ -1,6 +1,6 @@
 // Example data with the exact API shapes. Screens build against this until the API is live.
 import type {
-  ActivityItem, Costs, Hit, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
+  ActivityItem, Costs, Hit, InvoiceDetail, InvoiceSummary, Page, Policy, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
   Summary, VendorView,
 } from "./api-types";
 
@@ -223,7 +223,21 @@ const moreRules: RuleView[] = [
     [cond("vendor", "tax_id", "EQ", "000000000", "Proveedor · NIT = 000000000")],
     { active: false, deactivated_by: "Sergio", deactivated_at: "2026-10-17T19:10:00Z" }),
 ];
-rules.push(...moreRules);
+const policyRules: RuleView[] = [
+  extra("p-human", "Umbral de aprobación humana", "Todo pago de 10 mil dólares o más lo apruebo yo, siempre.", "ESCALATE", "HUMAN", 3,
+    [cond("invoice", "amount_usd", "GTE", 10000, "Factura · monto en USD >= 10.000")],
+    { overridable: false, summary: "Pide tu aprobación cuando el monto sea de USD 10.000 o más" }),
+  extra("p-tol", "Fuera de la tolerancia de la orden", "Si el monto se aleja más de 5 % de la orden de compra, escálalo.", "ESCALATE", "HUMAN", 2,
+    [cond("po_check", "desviacion_pct", "GT", 5, "Cruce con la orden · desviación % > 5")],
+    { summary: "Pide tu aprobación cuando el monto se desvíe más de 5 % de la orden" }),
+  extra("p-over", "Supera el saldo de la orden de compra", "Si con esta factura la orden queda sobregirada más de 5 %, escálala.", "ESCALATE", "HUMAN", 1,
+    [cond("po_check", "saldo_oc_despues_pct", "LT", -5, "Cruce con la orden · saldo de la orden tras pagar (%) < -5")],
+    { summary: "Pide tu aprobación cuando la factura sobregire la orden de compra más de 5 %" }),
+  extra("p-date", "Fecha fuera de rango", "Si la factura es de fecha futura o de hace más de 90 días, escálala.", "ESCALATE", "HUMAN", 0,
+    [cond("invoice_checks", "dias_emision", "NOT_BETWEEN", [0, 90], "Validaciones · días desde la emisión fuera de 0 y 90")],
+    { summary: "Pide tu aprobación cuando la fecha de emisión esté fuera de los últimos 90 días" }),
+];
+rules.push(...moreRules, ...policyRules);
 
 const LEAD = { ESCALATE: "Pide tu aprobación", HOLD: "Frena el pago", ALLOW: "Deja pasar el pago" } as const;
 for (const r of rules) {
@@ -374,3 +388,16 @@ export const activity = (): ActivityItem[] => [
   { id: "n1", kind: "EMAIL_FAILED", title: "No se pudo enviar un correo", detail: "A compras@andinos.example", invoice_id: "i-2041", at: minutesAgo(56) },
   { id: "d3", kind: "PAID", title: "Pagada: Papelería Central", detail: "320.50 USD", invoice_id: "i-2040", at: minutesAgo(190) },
 ];
+
+export const policy: Policy = {
+  budget: { period: "2026-10-01", amount_usd: 60000, paid_usd: 16717, approved_usd: 3900, available_usd: 39383, invoices_paid: 9 },
+  limits: [
+    { key: "payment_limit", label: "Límite por pago", rule_id: "r5", value: 5000, unit: "USD", effect: "ESCALATE", active: true },
+    { key: "human_approval", label: "Aprobación humana desde", rule_id: "p-human", value: 10000, unit: "USD", effect: "ESCALATE", active: true },
+    { key: "po_tolerance", label: "Tolerancia de la orden", rule_id: "p-tol", value: 5, unit: "%", effect: "ESCALATE", active: true },
+    { key: "po_overdraft", label: "Sobregiro de la orden", rule_id: "p-over", value: 5, unit: "%", effect: "ESCALATE", active: true },
+    { key: "date_window", label: "Ventana de fechas", rule_id: "p-date", value: 90, unit: "días", effect: "ESCALATE", active: true },
+  ],
+  blocked_vendors: 1,
+  exceptions: 1,
+};

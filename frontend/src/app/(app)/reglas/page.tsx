@@ -5,7 +5,8 @@ import { SearchX } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePolling } from "@/hooks/use-polling";
 import { api } from "@/lib/api";
-import type { InvoiceSummary } from "@/lib/api-types";
+import type { Effect, InvoiceSummary } from "@/lib/api-types";
+import { PolicySkeleton, PolicyStrip } from "@/components/reglas/policy-strip";
 import { ProposalsSection } from "@/components/reglas/proposals-section";
 import { RuleComposer } from "@/components/reglas/rule-composer";
 import { RuleList } from "@/components/reglas/rule-list";
@@ -13,17 +14,22 @@ import { RulesSkeleton } from "@/components/reglas/rules-skeleton";
 
 function Reglas() {
   const router = useRouter();
-  const from = useSearchParams().get("from");
+  const params = useSearchParams();
+  const from = params.get("from");
+  const budgetEditing = params.get("budget") === "edit";
   const [fetched, setFetched] = useState<InvoiceSummary | null>(null);
   const [missingId, setMissingId] = useState<string | null>(null);
   const invoice = from && fetched?.id === from ? fetched : null;
   const missing = from !== null && missingId === from;
   const rules = usePolling(() => api.rules(), 3000);
   const proposals = usePolling(() => api.proposals(), 3000);
+  const policy = usePolling(() => api.policy(), 3000);
+  const [onlyEffects, setOnlyEffects] = useState<{ key: number; effects: Effect[] }>({ key: 0, effects: [] });
   const refresh = useCallback(() => {
     rules.refresh();
     proposals.refresh();
-  }, [rules, proposals]);
+    policy.refresh();
+  }, [rules, proposals, policy]);
 
   useEffect(() => {
     if (!from) return;
@@ -33,11 +39,25 @@ function Reglas() {
   }, [from]);
 
   return (
-    <div className="mx-auto flex flex-col gap-4 lg:h-[calc(100dvh-9rem)]">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Reglas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Lo que el agente aplica en cada factura.</p>
+    <div className="mx-auto flex w-full min-w-0 flex-col gap-4 lg:h-[max(calc(100dvh-9rem),52rem)]">
+      <header className="flex flex-wrap items-baseline gap-x-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Política de pagos</h1>
+        <p className="text-sm text-muted-foreground">Lo que el agente aplica en cada factura.</p>
       </header>
+
+      {policy.data && rules.data ? (
+        <PolicyStrip
+          policy={policy.data}
+          rules={rules.data}
+          onChange={refresh}
+          budgetEditing={budgetEditing}
+          onShowExceptions={() => setOnlyEffects((c) => ({ key: c.key + 1, effects: ["ALLOW"] }))}
+        />
+      ) : policy.error ? (
+        <p className="text-sm text-hold">No se pudo cargar la política.</p>
+      ) : (
+        <PolicySkeleton />
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         <aside className="flex flex-col gap-4 lg:w-[440px] lg:shrink-0 lg:overflow-y-auto">
@@ -56,7 +76,7 @@ function Reglas() {
         {rules.error && !rules.data ? (
           <p className="text-sm text-hold">No se pudieron cargar las reglas.</p>
         ) : rules.data ? (
-          <RuleList rules={rules.data} onChange={refresh} />
+          <RuleList key={onlyEffects.key} rules={rules.data} onChange={refresh} initialEffects={onlyEffects.effects} />
         ) : (
           <RulesSkeleton />
         )}

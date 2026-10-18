@@ -10,8 +10,8 @@ import { EffectBadge } from "./effect-badge";
 import { AllowWarning, CONFIRM_LABEL, TechnicalCondition } from "./rule-sentence";
 
 // Inline "edit with the agent": ask, read the agent's new version next to the old one, confirm to replace.
-export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose: () => void; onSaved: () => void }) {
-  const [text, setText] = useState("");
+export function RuleRevise({ rule, onClose, onSaved, initialText = "" }: { rule: RuleView; onClose: () => void; onSaved: () => void; initialText?: string }) {
+  const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +55,7 @@ export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose
         <input
           id={`revise-${rule.id}`}
           autoFocus
+          onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask()}

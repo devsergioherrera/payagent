@@ -63,3 +63,16 @@ export function duration(ms: number) {
 export function costUsd(v: number) {
   return `USD ${new Intl.NumberFormat("es-CO", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v)}`;
 }
+
+// "2026-10-01" -> "octubre". Noon avoids a timezone shift to the previous day.
+export function monthName(isoDate: string) {
+  return new Intl.DateTimeFormat("es-CO", { month: "long" }).format(new Date(`${isoDate}T12:00:00`));
+}
+
+// Whole dollars for headline figures; cents only when they exist.
+export function moneyWhole(amount: number, currency = "USD") {
+  const whole = Number.isInteger(amount);
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2,
+  }).format(amount);
+}
