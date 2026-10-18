@@ -55,8 +55,12 @@ def create_rule(
         )
         for c in body.conditions
     ]
-    if body.replaces_rule_id and not queries.rule_views(body.replaces_rule_id):
-        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    if body.replaces_rule_id:
+        old = queries.rule_views(body.replaces_rule_id)
+        if not old:
+            raise HTTPException(status_code=404, detail="Regla no encontrada")
+        if not old[0].active:
+            raise HTTPException(status_code=409, detail="La regla ya no está activa")
     try:
         rule_id = rules.create_rule(
             name=body.name, natural_language=body.natural_language, effect=Effect(body.effect),
@@ -75,7 +79,7 @@ def deactivate_rule(
 ) -> RuleView:
     if not queries.rule_views(rule_id):
         raise HTTPException(status_code=404, detail="Regla no encontrada")
-    rules.deactivate(rule_id)
+    rules.deactivate(rule_id, settings.admin_name)
     return queries.rule_views(rule_id)[0]
 
 
@@ -83,8 +87,13 @@ def deactivate_rule(
 def activate_rule(
     rule_id: str, rules: PostgresRules = Depends(get_rules), queries: ApiQueries = Depends(get_queries)
 ) -> RuleView:
-    if not queries.rule_views(rule_id):
+    found = queries.rule_views(rule_id)
+    if not found:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
+    if found[0].replaced_by:
+        raise HTTPException(
+            status_code=409, detail=f"Esta regla fue reemplazada por «{found[0].replaced_by.name}»; activa esa versión"
+        )
     rules.activate(rule_id)
     return queries.rule_views(rule_id)[0]
 

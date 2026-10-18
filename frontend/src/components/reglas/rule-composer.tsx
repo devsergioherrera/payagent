@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { ArrowUp, Check, FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { InvoiceSummary, RuleDraft } from "@/lib/api-types";
 import { Mascot } from "@/components/mascot/mascot";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftPreview } from "./draft-preview";
+import { CONFIRM_LABEL } from "./rule-sentence";
 
 const EXAMPLES = [
   "No paguen más de 5 mil dólares sin que yo apruebe",
@@ -52,7 +53,7 @@ export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) 
       setDraft(res.draft);
       setError(res.error);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -68,7 +69,7 @@ export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) 
       setText("");
       onCreated();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -134,7 +135,7 @@ export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) 
           <DraftPreview draft={draft}>
             <div className="flex gap-2">
               <Button onClick={confirm} disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]">
-                <Check />Confirmar regla
+                <Check />{CONFIRM_LABEL[draft.effect]}
               </Button>
               <Button variant="ghost" onClick={() => setDraft(null)} disabled={saving} className="active:scale-[0.98]"><X />Descartar</Button>
             </div>

@@ -159,7 +159,7 @@ def test_max_turns():
 
 
 def test_allow_must_be_overridable():
-    assert "ALLOW" in error_of([cond("GT", value=1)], effect="ALLOW", overridable=False)
+    assert "Permitir" in error_of([cond("GT", value=1)], effect="ALLOW", overridable=False)
 
 
 def test_allow_draft_with_normalized_tax_id_and_boolean():
@@ -175,25 +175,25 @@ def test_allow_draft_with_normalized_tax_id_and_boolean():
 
 
 @pytest.mark.parametrize("conditions,fragment", [
-    ([cond("GT", column="country", value="BR")], "cannot be used on invoice.country"),
-    ([cond("GT", column="approved", source="vendor", value=True)], "cannot be used"),
-    ([cond("BETWEEN", value=5)], "[low, high]"),
-    ([cond("BETWEEN", value=[10, 1])], "low must be <= high"),
-    ([cond("IN", column="country", value="BR")], "non-empty list"),
-    ([cond("EQ", value=[1, 2])], "single value"),
-    ([cond("IS_NULL", value=3)], "takes no value"),
-    ([cond("GT", value="mucho")], "not a valid number"),
-    ([cond("EQ", column="country", value=3)], "not a valid text"),
-    ([cond("EQ", column="approved", source="vendor", value="yes")], "not a valid boolean"),
-    ([cond("GT", column="issue_date", value="ayer")], "not a valid date"),
-    ([cond("GT")], "needs a value"),
-    ([cond("GT", value=1, value_source="vendor", value_column="tax_id")], "not both"),
-    ([cond("GT", value_source="vendor")], "go together"),
-    ([cond("GT", value_source="vendor", value_column="tax_id")], "cannot compare"),
-    ([cond("IN", value_source="vendor", value_column="tax_id")], "literal values"),
+    ([cond("GT", column="country", value="BR")], "no se puede usar con invoice.country"),
+    ([cond("GT", column="approved", source="vendor", value=True)], "no se puede usar"),
+    ([cond("BETWEEN", value=5)], "[mínimo, máximo]"),
+    ([cond("BETWEEN", value=[10, 1])], "el mínimo debe ser menor"),
+    ([cond("IN", column="country", value="BR")], "al menos un valor"),
+    ([cond("EQ", value=[1, 2])], "un solo valor"),
+    ([cond("IS_NULL", value=3)], "no lleva valor"),
+    ([cond("GT", value="mucho")], "(number)"),
+    ([cond("EQ", column="country", value=3)], "(text)"),
+    ([cond("EQ", column="approved", source="vendor", value="yes")], "(boolean)"),
+    ([cond("GT", column="issue_date", value="ayer")], "(date)"),
+    ([cond("GT")], "necesita un valor"),
+    ([cond("GT", value=1, value_source="vendor", value_column="tax_id")], "no los dos"),
+    ([cond("GT", value_source="vendor")], "van juntos"),
+    ([cond("GT", value_source="vendor", value_column="tax_id")], "No se puede comparar"),
+    ([cond("IN", value_source="vendor", value_column="tax_id")], "valores fijos"),
     ([cond("GT", source="stock", value=1)], "unknown source"),
-    ([cond("MUCHO", value=1)], "is not valid"),
-    ([], "at least one condition"),
+    ([cond("MUCHO", value=1)], "no es válido"),
+    ([], "al menos una condición"),
 ])
 def test_validation_errors(conditions, fragment):
     assert fragment in error_of(conditions)

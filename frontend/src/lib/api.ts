@@ -13,6 +13,11 @@ export class ApiError extends Error {
   }
 }
 
+export function errorMessage(e: unknown): string {
+  if (e instanceof ApiError || e instanceof Error) return e.message;
+  return "Algo salió mal";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, { credentials: "include", ...init });
   if (res.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
@@ -66,7 +71,9 @@ export const api = {
   },
   invoice: (id: string) =>
     USE_MOCKS
-      ? mock<InvoiceDetail>(mocks.invoiceDetails[id] ?? mocks.invoiceDetail)
+      ? mocks.invoiceDetails[id] || /^i-\d+$/.test(id)
+        ? mock<InvoiceDetail>(mocks.invoiceDetails[id] ?? mocks.invoiceDetail)
+        : Promise.reject(new ApiError(404, "Factura no encontrada"))
       : request<InvoiceDetail>(`/invoices/${id}`),
   upload: (file: File | null, text?: string) => {
     if (USE_MOCKS) return mock<Created>({ invoice_id: "i-2045", duplicate_of: null });
@@ -81,7 +88,7 @@ export const api = {
   rules: () => (USE_MOCKS ? mock<RuleView[]>(mocks.rules) : request<RuleView[]>("/rules")),
   draftRule: (text: string, invoiceId?: string | null) =>
     USE_MOCKS
-      ? mock<DraftResponse>({ draft: { ...mocks.rules[0], natural_language: text }, error: null })
+      ? mock<DraftResponse>({ draft: { ...mocks.rules[/déjalo|permite|pase/i.test(text) ? 2 : 0], natural_language: text }, error: null })
       : request<DraftResponse>("/rules/draft", json({ text, invoice_id: invoiceId ?? null })),
   reviseRule: (id: string, instruction: string) =>
     USE_MOCKS

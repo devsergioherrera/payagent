@@ -66,6 +66,8 @@ export interface RuleCreate extends RuleDraft { replaces_rule_id?: string | null
 export interface RuleView extends RuleDraft {
   id: string; origin: "HUMAN" | "AGENT"; proposed_by: string; proposed_at: string;
   approved_by: string; approved_at: string; active: boolean; times_fired: number;
+  replaced_by: { id: string; name: string } | null;
+  deactivated_at: string | null; deactivated_by: string | null;
 }
 
 export interface DraftResponse { draft: RuleDraft | null; error: string | null }

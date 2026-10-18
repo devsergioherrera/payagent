@@ -24,6 +24,7 @@ COLUMN_LABEL = {
     "orden_encontrada": "orden encontrada", "desviacion_pct": "desviación %", "moneda_coincide": "moneda coincide",
     "proveedor_coincide": "proveedor coincide", "saldo_despues_usd": "saldo tras pagar (USD)",
     "comprometido_usd": "comprometido en el mes (USD)", "presupuesto_usd": "presupuesto del mes (USD)",
+    "comprometido_oc": "ya comprometido en la orden", "saldo_oc_despues_pct": "saldo de la orden tras pagar (%)",
 }
 
 
@@ -112,6 +113,8 @@ def _specific(cond: Condition) -> str | None:
         return _flag(cond, "la factura tenga una orden de compra", "la factura no tenga una orden de compra válida")
     if col == "desviacion_pct" and op is Operator.GT:
         return f"el monto se desvíe más de {_num(v)} % de la orden"
+    if col == "saldo_oc_despues_pct" and op in (Operator.LT, Operator.LTE):
+        return "la factura sobregire la orden de compra"
     if col == "moneda_coincide":
         return _flag(cond, "la moneda coincida con la de la orden", "la moneda sea distinta a la de la orden")
     if col == "proveedor_coincide":

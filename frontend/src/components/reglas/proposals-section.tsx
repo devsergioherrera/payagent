@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { ProposalView } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ function Proposal({ proposal, onChange }: { proposal: ProposalView; onChange: ()
       toast(kind === "accept" ? "Regla aceptada" : "Propuesta rechazada");
       onChange();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorMessage(e));
       setBusy(false);
     }
   }
@@ -41,7 +41,9 @@ function Proposal({ proposal, onChange }: { proposal: ProposalView; onChange: ()
           </div>
         )}
         <div className="flex gap-2">
-          <Button size="sm" disabled={busy} onClick={() => act("accept")} className="bg-brand text-brand-foreground hover:bg-brand/90">Aceptar</Button>
+          <Button size="sm" disabled={busy} onClick={() => act("accept")} className="bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]">
+            {proposal.draft.effect === "ALLOW" ? "Confirmar excepción" : "Aceptar"}
+          </Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => act("reject")}>Rechazar</Button>
         </div>
       </DraftPreview>

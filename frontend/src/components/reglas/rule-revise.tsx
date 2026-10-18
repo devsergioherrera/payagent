@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { ArrowUp, Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { RuleDraft, RuleView } from "@/lib/api-types";
 import { Button } from "@/components/ui/button";
 import { EffectBadge } from "./effect-badge";
-import { TechnicalCondition } from "./rule-sentence";
+import { AllowWarning, CONFIRM_LABEL, TechnicalCondition } from "./rule-sentence";
 
 // Inline "edit with the agent": ask, read the agent's new version next to the old one, confirm to replace.
 export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose: () => void; onSaved: () => void }) {
@@ -27,7 +27,7 @@ export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose
       setDraft(res.draft);
       setError(res.error);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -41,7 +41,7 @@ export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose
       toast.success("Regla actualizada");
       onSaved();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorMessage(e));
       setSaving(false);
     }
   }
@@ -73,12 +73,13 @@ export function RuleRevise({ rule, onClose, onSaved }: { rule: RuleView; onClose
           <p className="mt-1 flex items-center gap-2 text-xs text-brand">Ahora <EffectBadge effect={draft.effect} /></p>
           <p className="text-[15px] leading-snug font-medium">{draft.summary}</p>
           <TechnicalCondition rule={draft} />
+          <AllowWarning rule={draft} />
         </div>
       )}
       <div className="flex gap-2">
         {draft && (
           <Button size="sm" onClick={confirm} disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]">
-            <Check />Confirmar
+            <Check />{draft.effect === "ALLOW" ? CONFIRM_LABEL.ALLOW : "Confirmar"}
           </Button>
         )}
         <Button size="sm" variant="ghost" onClick={onClose} disabled={saving} className="active:scale-[0.98]"><X />Cancelar</Button>

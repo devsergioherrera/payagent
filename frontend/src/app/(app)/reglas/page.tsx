@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { SearchX } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePolling } from "@/hooks/use-polling";
 import { api } from "@/lib/api";
@@ -14,7 +15,9 @@ function Reglas() {
   const router = useRouter();
   const from = useSearchParams().get("from");
   const [fetched, setFetched] = useState<InvoiceSummary | null>(null);
+  const [missingId, setMissingId] = useState<string | null>(null);
   const invoice = from && fetched?.id === from ? fetched : null;
+  const missing = from !== null && missingId === from;
   const rules = usePolling(() => api.rules(), 3000);
   const proposals = usePolling(() => api.proposals(), 3000);
   const refresh = useCallback(() => {
@@ -25,7 +28,7 @@ function Reglas() {
   useEffect(() => {
     if (!from) return;
     let alive = true;
-    api.invoice(from).then((d) => alive && setFetched(d.summary)).catch(() => {});
+    api.invoice(from).then((d) => alive && setFetched(d.summary)).catch(() => alive && setMissingId(from));
     return () => { alive = false; };
   }, [from]);
 
@@ -38,6 +41,15 @@ function Reglas() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         <aside className="flex flex-col gap-4 lg:w-[440px] lg:shrink-0 lg:overflow-y-auto">
+          {missing && (
+            <p role="status" className="flex items-center gap-2 rounded-xl border bg-card px-3.5 py-2.5 text-[13px] text-muted-foreground">
+              <SearchX className="size-4 shrink-0" aria-hidden />
+              No encontré esa factura
+              <button type="button" onClick={() => router.replace("/reglas")} className="ml-auto font-medium text-brand hover:underline">
+                Quitar
+              </button>
+            </p>
+          )}
           <RuleComposer onCreated={refresh} fromInvoice={invoice} onClearInvoice={() => router.replace("/reglas")} />
           <ProposalsSection proposals={proposals.data ?? []} onChange={refresh} />
         </aside>

@@ -140,6 +140,7 @@ export const rules: RuleView[] = [
     id: "r5", name: "Límite por pago", natural_language: "No paguen más de 5 mil dólares sin que yo apruebe.",
     effect: "ESCALATE", overridable: true, origin: "HUMAN", proposed_by: "Sergio", proposed_at: "2026-10-17T18:00:00Z",
     approved_by: "Sergio", approved_at: "2026-10-17T18:00:00Z", active: true, times_fired: 4,
+    replaced_by: null, deactivated_at: null, deactivated_by: null,
     conditions: [{ source: "invoice", column: "amount_usd", operator: "GT", value: 5000, text: "Factura · monto en USD > 5.000" }],
     summary: "Pide tu aprobación cuando el monto supere USD 5.000",
   },
@@ -147,6 +148,7 @@ export const rules: RuleView[] = [
     id: "r2", name: "Proveedor bloqueado", natural_language: "Nunca le pagues a un proveedor bloqueado.",
     effect: "HOLD", overridable: false, origin: "HUMAN", proposed_by: "Sergio", proposed_at: "2026-10-17T18:00:00Z",
     approved_by: "Sergio", approved_at: "2026-10-17T18:00:00Z", active: true, times_fired: 1,
+    replaced_by: null, deactivated_at: null, deactivated_by: null,
     conditions: [{ source: "vendor", column: "status", operator: "EQ", value: "BLOCKED", text: "Proveedor · estado = bloqueado" }],
     summary: "Frena el pago cuando el proveedor esté bloqueado",
   },
@@ -154,6 +156,7 @@ export const rules: RuleView[] = [
     id: "r16", name: "Northwind sin orden de compra", natural_language: "Aprobaste 3 de 3 facturas de Northwind sin orden de compra.",
     effect: "ALLOW", overridable: true, origin: "AGENT", proposed_by: "Agente", proposed_at: "2026-10-17T22:05:00Z",
     approved_by: "Sergio", approved_at: "2026-10-17T22:07:00Z", active: true, times_fired: 0,
+    replaced_by: null, deactivated_at: null, deactivated_by: null,
     conditions: [
       { source: "vendor", column: "tax_id", operator: "EQ", value: "841234567", text: "Proveedor · NIT = 841234567" },
       { source: "po_check", column: "orden_encontrada", operator: "EQ", value: false, text: "Cruce con la orden · orden encontrada = no" },
@@ -170,7 +173,8 @@ const extra = (
 ): RuleView => ({
   id, name, natural_language, effect, overridable: effect !== "HOLD", origin,
   proposed_by: origin === "AGENT" ? "Agente" : "Sergio", proposed_at: "2026-10-16T15:00:00Z",
-  approved_by: "Sergio", approved_at: "2026-10-16T15:20:00Z", active: true, times_fired, conditions, summary: "", ...more,
+  approved_by: "Sergio", approved_at: "2026-10-16T15:20:00Z", active: true, times_fired, conditions, summary: "",
+  replaced_by: null, deactivated_at: null, deactivated_by: null, ...more,
 });
 
 const moreRules: RuleView[] = [
@@ -213,9 +217,11 @@ const moreRules: RuleView[] = [
   extra("r34", "Compras recurrentes de oficina", "Los pagos de papelería con presupuesto disponible pasan solos.", "ALLOW", "AGENT", 4,
     [cond("budget_status", "remaining_pct", "GTE", 30, "Presupuesto · saldo restante >= 30 %")]),
   extra("r35", "Monto redondo sospechoso", "Montos redondos muy altos me dan desconfianza.", "ESCALATE", "HUMAN", 0,
-    [cond("invoice", "amount_usd", "GTE", 10000, "Factura · monto en USD >= 10.000")], { active: false }),
+    [cond("invoice", "amount_usd", "GTE", 10000, "Factura · monto en USD >= 10.000")],
+    { active: false, deactivated_by: "Sergio", deactivated_at: "2026-10-17T20:40:00Z", replaced_by: { id: "r27", name: "Pago pequeño" } }),
   extra("r36", "Proveedor de prueba", "Regla de pruebas del piloto.", "ALLOW", "HUMAN", 0,
-    [cond("vendor", "tax_id", "EQ", "000000000", "Proveedor · NIT = 000000000")], { active: false }),
+    [cond("vendor", "tax_id", "EQ", "000000000", "Proveedor · NIT = 000000000")],
+    { active: false, deactivated_by: "Sergio", deactivated_at: "2026-10-17T19:10:00Z" }),
 ];
 rules.push(...moreRules);
 
@@ -290,7 +296,7 @@ export const purchaseOrders: PurchaseOrderRow[] = Array.from({ length: 64 }, (_,
   const amount = v.currency === "COP" ? (4 + (n % 9)) * 2_500_000 : (3 + (n % 8)) * 1500;
   const amountUsd = Math.round(amount * FX[v.currency] * 100) / 100;
   const closed = n % 6 === 5;
-  const share = closed ? 1 : [0, 0.25, 0.5, 0.8, 1.1][n % 5];
+  const share = closed ? 1 : [0, 0.25, 0.5, 0.8, 1.67][n % 5];
   const invoiced = Math.round(amountUsd * share * 100) / 100;
   return {
     po_number: `PO-${1001 + n}`, vendor_id: v.id, vendor_name: v.name,

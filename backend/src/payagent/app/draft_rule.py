@@ -3,7 +3,6 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
 from google.genai import types
@@ -11,6 +10,7 @@ from google.genai import types
 from payagent.adapters.gemini._call import call_with_retry, record_usage
 from payagent.api.schemas import ConditionView, DraftResponse, RuleDraft
 from payagent.app.rule_text import condition_text, rule_summary
+from payagent.app.rule_validation import RuleError, validate_rule
 from payagent.domain.invoice import normalize_id
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator
 from payagent.ports.repositories import ColumnInfo, Operations, RuleCatalog
@@ -118,48 +118,22 @@ TOOLS = types.Tool(
     ]
 )
 
-_ORDERED = {Operator.GT, Operator.GTE, Operator.LT, Operator.LTE}
-_SET = {Operator.IN, Operator.NOT_IN}
-_RANGE = {Operator.BETWEEN, Operator.NOT_BETWEEN}
-_NULLS = {Operator.IS_NULL, Operator.IS_NOT_NULL}
-_EQUALITY = {Operator.EQ, Operator.NEQ}
-_ALLOWED: dict[str, set[Operator]] = {
-    "number": _EQUALITY | _ORDERED | _SET | _RANGE | _NULLS,
-    "date": _EQUALITY | _ORDERED | _RANGE | _NULLS,
-    "text": _EQUALITY | _SET | _NULLS,
-    "boolean": _EQUALITY | _NULLS,
-}
 _NORMALIZED_COLUMNS = ("tax_id", "bank_account")
 
 
-class RuleError(ValueError):
-    """A validation problem written for the model, so it can fix its call."""
-
-
-def _scalar(raw: Any, col: ColumnInfo) -> str | float | bool:
-    if col.data_type == "boolean":
-        if isinstance(raw, bool):
-            return raw
-    elif col.data_type == "number":
+def _coerce(raw: Any, col: ColumnInfo) -> Any:
+    """Forgive harmless formats ('5,000', ids with dots); anything else is left for validate_rule to reject."""
+    if col.data_type == "number":
         if isinstance(raw, (int, float)) and not isinstance(raw, bool):
             return float(raw)
         if isinstance(raw, str):
             try:
                 return float(raw.replace(",", ""))
             except ValueError:
-                pass
-    elif col.data_type == "date":
-        if isinstance(raw, str):
-            try:
-                date.fromisoformat(raw)
                 return raw
-            except ValueError:
-                pass
-    elif isinstance(raw, str):
-        if any(k in col.name for k in _NORMALIZED_COLUMNS):
-            return normalize_id(raw) or raw
-        return raw
-    raise RuleError(f"value {raw!r} is not a valid {col.data_type} for column {col.name}")
+    elif col.data_type == "text" and isinstance(raw, str) and any(k in col.name for k in _NORMALIZED_COLUMNS):
+        return normalize_id(raw) or raw
+    return raw
 
 
 @dataclass
@@ -254,11 +228,7 @@ class RuleDrafter:
             raise RuleError("overridable must be true or false")
         if effect is Effect.HOLD:
             overridable = False  # nothing may cancel a HOLD
-        if effect is Effect.ALLOW and not overridable:
-            raise RuleError("an ALLOW rule must have overridable = true")
         raw_conditions = args.get("conditions") or []
-        if not raw_conditions:
-            raise RuleError("a rule needs at least one condition")
         name = str(args.get("name") or "").strip()
         natural = str(args.get("natural_language") or "").strip()
         if not name or not natural:
@@ -277,54 +247,30 @@ class RuleDrafter:
             return columns[source][col]
 
         conds = [self._condition(raw, column) for raw in raw_conditions]
+        validate_rule(effect=effect, overridable=overridable, conditions=conds, column=column)
         views = [self._view(c, labels) for c in conds]
         return RuleDraft(name=name, natural_language=natural, effect=effect.value, overridable=overridable,
                          conditions=views, summary=rule_summary(effect, conds, labels))
 
     @staticmethod
     def _condition(raw: dict[str, Any], column: Any) -> Condition:
+        """Parse the model's call into a Condition, coercing literals to the column type; validate_rule checks the rest."""
         try:
             op = Operator(raw.get("operator"))
         except ValueError:
-            raise RuleError(f"operator {raw.get('operator')!r} is not valid; use {', '.join(o.value for o in Operator)}") from None
+            raise RuleError(f"El operador {raw.get('operator')!r} no es válido; usa {', '.join(o.value for o in Operator)}") from None
         left = ColumnRef(str(raw.get("source")), str(raw.get("column")))
         info = column(left.source, left.column)
-        where = f"{left}"
-        if op not in _ALLOWED[info.data_type]:
-            raise RuleError(f"operator {op.value} cannot be used on {where} ({info.data_type}); "
-                            f"allowed: {', '.join(sorted(o.value for o in _ALLOWED[info.data_type]))}")
         value, vsrc, vcol = raw.get("value"), raw.get("value_source"), raw.get("value_column")
-        if op in _NULLS:
-            if value is not None or vsrc or vcol:
-                raise RuleError(f"{op.value} on {where} takes no value")
-            return Condition(left, op)
-        if (vsrc or vcol) and value is not None:
-            raise RuleError(f"{where}: give either value or value_source+value_column, not both")
         if vsrc or vcol:
             if not (vsrc and vcol):
-                raise RuleError(f"{where}: value_source and value_column go together")
-            if op in _SET | _RANGE:
-                raise RuleError(f"{op.value} needs literal values, not a column")
-            other = column(str(vsrc), str(vcol))
-            if other.data_type != info.data_type:
-                raise RuleError(f"cannot compare {where} ({info.data_type}) with {vsrc}.{vcol} ({other.data_type})")
-            return Condition(left, op, value_ref=ColumnRef(str(vsrc), str(vcol)))
-        if value is None:
-            raise RuleError(f"{op.value} on {where} needs a value")
-        if op in _RANGE:
-            if not isinstance(value, list) or len(value) != 2:
-                raise RuleError(f"{op.value} on {where} needs a list [low, high]")
-            low, high = (_scalar(v, info) for v in value)
-            if info.data_type == "number" and low > high:
-                raise RuleError(f"{op.value} on {where}: low must be <= high")
-            return Condition(left, op, [low, high])
-        if op in _SET:
-            if not isinstance(value, list) or not value:
-                raise RuleError(f"{op.value} on {where} needs a non-empty list")
-            return Condition(left, op, [_scalar(v, info) for v in value])
+                raise RuleError(f"{left}: value_source y value_column van juntos")
+            return Condition(left, op, value, ColumnRef(str(vsrc), str(vcol)))
         if isinstance(value, list):
-            raise RuleError(f"{op.value} on {where} takes a single value, not a list")
-        return Condition(left, op, _scalar(value, info))
+            value = [_coerce(v, info) for v in value]
+        elif value is not None:
+            value = _coerce(value, info)
+        return Condition(left, op, value)
 
     @staticmethod
     def _view(cond: Condition, labels: dict[str, str]) -> ConditionView:

@@ -1,4 +1,4 @@
-"""The 15 seed rules, mirroring db/migrations/002_seed.sql (same ids, order, effects)."""
+"""The 16 seed rules, mirroring db/migrations/002_seed.sql (same ids, order, effects)."""
 
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator, Rule
 
@@ -35,4 +35,6 @@ def seed_rules() -> list[Rule]:
         _r(13, "Faltan datos", E, False, _c("invoice_checks", "campos_faltantes", O.GT, 0)),
         _r(14, "Fecha fuera de rango", E, True, _c("invoice_checks", "dias_emision", O.NOT_BETWEEN, [0, 90])),
         _r(15, "Factura vencida", E, True, _c("invoice", "due_date", O.IS_NOT_NULL, None), _c("invoice_checks", "dias_para_vencer", O.LT, 0)),
+        _r(16, "Supera el saldo de la orden de compra", E, True,
+           _c("po_check", "orden_encontrada", O.EQ, True), _c("po_check", "saldo_oc_despues_pct", O.LT, -5)),
     ]
