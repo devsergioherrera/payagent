@@ -19,7 +19,7 @@ class SmtpNotifier:
         self.host = host
         self.port = port
 
-    def reply_to_sender(self, origin: EmailOrigin, body: str) -> None:
+    def reply_to_sender(self, origin: EmailOrigin, body: str, html: str | None = None) -> None:
         msg = EmailMessage()
         msg["From"] = self.address
         msg["To"] = origin.sender
@@ -29,14 +29,18 @@ class SmtpNotifier:
             msg["In-Reply-To"] = origin.message_id
             msg["References"] = origin.message_id
         msg.set_content(body)
+        if html:
+            msg.add_alternative(html, subtype="html")
         self._send(msg)
 
-    def notify_escalation(self, subject: str, body: str) -> None:
+    def notify_escalation(self, subject: str, body: str, html: str | None = None) -> None:
         msg = EmailMessage()
         msg["From"] = self.address
         msg["To"] = self.approver_email
         msg["Subject"] = subject
         msg.set_content(body)
+        if html:
+            msg.add_alternative(html, subtype="html")
         self._send(msg)
 
     def _send(self, msg: EmailMessage) -> None:

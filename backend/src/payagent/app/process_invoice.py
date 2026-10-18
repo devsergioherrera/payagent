@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from payagent.adapters.upload.storage import FileStorage
+from payagent.app.email_templates import escalation_email, reply_email
 from payagent.domain.decision import Outcome
 from payagent.ports.invoice_source import IncomingDocument
 from payagent.ports.notifier import Notifier
@@ -86,9 +87,11 @@ def process_invoice(
             notifications.record(result.invoice_id, kind, recipient, "FAILED" if error else "SENT", error)
 
     if result.outcome is Outcome.ESCALATE:  # HOLD is final: nobody needs to act
-        send("ESCALATION", approver_email, notifier.notify_escalation, _escalation_subject(result), _escalation_body(result, doc, link))
+        text, html = escalation_email(result, doc, link)
+        send("ESCALATION", approver_email, notifier.notify_escalation, _escalation_subject(result), text, html)
     if doc.email:
-        send("REPLY", doc.email.sender, notifier.reply_to_sender, doc.email, _reply_body(result, link))
+        text, html = reply_email(result, link)
+        send("REPLY", doc.email.sender, notifier.reply_to_sender, doc.email, text, html)
     return result
 
 
@@ -108,24 +111,8 @@ def _escalation_subject(result: ProcessedInvoice) -> str:
 
 
 def _escalation_body(result: ProcessedInvoice, doc: IncomingDocument, link: str) -> str:
-    amount_usd = f"USD {result.amount_usd}" if result.amount_usd else "—"
-    return (
-        f"Proveedor: {result.vendor or '—'}\n"
-        f"Monto: {result.amount or '—'} {result.currency or ''}\n"
-        f"Monto en USD: {amount_usd}\n"
-        f"Regla que decidió: {result.rule or '—'}\n"
-        f"Origen: {doc.source_type} ({doc.filename})\n\n"
-        f"Motivo: {result.explanation}\n\n"
-        f"Revisar: {link}\n"
-    )
-
-
-_OUTCOME_LABEL = {
-    Outcome.PAY: "PAGAR",
-    Outcome.HOLD: "FRENAR (decisión final del agente)",
-    Outcome.ESCALATE: "ESCALAR (pendiente de aprobación humana)",
-}
+    return escalation_email(result, doc, link)[0]
 
 
 def _reply_body(result: ProcessedInvoice, link: str) -> str:
-    return f"Decisión: {_OUTCOME_LABEL[result.outcome]}\n\n{result.explanation}\n\nDetalle: {link}\n"
+    return reply_email(result, link)[0]

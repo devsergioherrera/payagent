@@ -46,12 +46,12 @@ class FakeNotifier:
         self.replies: list[tuple[EmailOrigin, str]] = []
         self.escalations: list[str] = []
 
-    def reply_to_sender(self, origin, body):
+    def reply_to_sender(self, origin, body, html=None):
         if self.fail:
             raise OSError("smtp down")
         self.replies.append((origin, body))
 
-    def notify_escalation(self, subject, body):
+    def notify_escalation(self, subject, body, html=None):
         if self.fail:
             raise OSError("smtp down")
         self.escalations.append(subject)
@@ -188,3 +188,15 @@ def test_inbox_files_are_handled_in_order_and_moved(tmp_path):
     assert seen[0].source_type is SourceType.INBOX and seen[0].content_type == "application/pdf"
     assert sorted(p.name for p in (tmp_path / "processed").iterdir()) == ["a.pdf", "b.txt"]
     assert poll_inbox(tmp_path, seen.append) == 0
+
+
+def test_emails_come_as_text_and_branded_html():
+    from payagent.app.email_templates import escalation_email, reply_email
+
+    result = ProcessedInvoice("inv-1", Outcome.HOLD, "Frenada: <duplicada>.", "Acme", "500", "EUR", "540.00", "Duplicado exacto")
+    text, html = escalation_email(result, _doc(), "http://x/facturas/inv-1")
+    assert "Esta factura fue frenada porque la regla que decidió fue **Duplicado exacto**" in text
+    assert text.index("Duplicado exacto") < text.index("Acme") and "ID de factura: inv-1" in text and "Tercero: Acme" in text
+    assert "<strong>Duplicado exacto</strong>" in html
+    assert "<table" in html and "Frenar" in html and "&lt;duplicada&gt;" in html and 'href="http://x/facturas/inv-1"' in html
+    assert reply_email(result, "http://x/f")[0].startswith("FacturaYa · Factura frenada")
