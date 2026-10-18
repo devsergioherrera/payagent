@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mascot, type MascotState } from "@/components/mascot/mascot";
-import { api } from "@/lib/api";
-import type { InvoiceState, InvoiceSummary, ProposalView, Summary } from "@/lib/api-types";
+import { api, ApiError } from "@/lib/api";
+import type { InvoiceState, InvoiceSummary, ProposalView, Summary, TraceStep } from "@/lib/api-types";
 import { usePolling } from "@/hooks/use-polling";
 import { ago, greeting, isProcessing } from "@/lib/format";
 import { STATE } from "@/lib/state";
@@ -138,9 +138,11 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
   const proposals = usePolling(() => api.proposals(), 3000);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [typing, setTyping] = useState(false);
+  const [learning, setLearning] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const proposal = proposals.data?.find((p) => p.status === "PENDING" && !dismissed.includes(p.id));
-  const base = useMascotState(latest, waiting || typing);
+  const base = useMascotState(latest, waiting || typing || transcribing);
   const mascot = celebrating ? "paid" : base;
   const home = messages.length === 0;
 
@@ -152,7 +154,7 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [messages, waiting]);
+  }, [messages, waiting, learning]);
 
   const send = async (text: string, file: File | null) => {
     setMessages((m) => [...m, { role: "user", text, file: file?.name }]);
@@ -167,6 +169,29 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
     }
   };
 
+  const learn = async () => {
+    if (learning) return;
+    setMessages((m) => [...m, { role: "user", text: "Aprende de mis decisiones" }]);
+    setLearning(true);
+    const say = (text: string, trace?: TraceStep[]) => setMessages((m) => [...m, { role: "agent", text, cards: [], trace }]);
+    try {
+      const run = await api.runProposals();
+      if (run.created.length > 0) setMessages((m) => [...m, { role: "proposal", proposal: run.created[0] }]);
+      else say("Revisé tus decisiones recientes y no encontré un patrón nuevo.", run.trace);
+    } catch (e) {
+      say(e instanceof ApiError && e.status === 409 ? "Ya estoy revisando." : "No pude revisar tus decisiones ahora. Inténtalo de nuevo.");
+    } finally {
+      setLearning(false);
+    }
+  };
+
+  const resolved = (index: number, kind: "accept" | "reject") => {
+    const m = messages[index];
+    if (m?.role === "proposal") setDismissed((d) => [...d, m.proposal.id]);
+    setMessages((all) => all.map((x, i) => (i === index ? { role: "agent", text: kind === "accept" ? "Listo, aprendí la regla y la aplicaré desde ahora." : "Entendido, no aplicaré esa regla.", cards: [] } : x)));
+    proposals.refresh();
+  };
+
   return (
     <section className={cn("flex min-h-0 flex-col", home && "justify-center", className)}>
       <div className={cn("min-h-0 overflow-y-auto px-4", !home && "flex-1")}>
@@ -175,12 +200,12 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
               summary={summary} latest={latest} mascot={mascot} proposal={proposal}
               onThinking={setTyping} onLearned={() => setCelebrating(true)}
               onResolved={() => { if (proposal) setDismissed((d) => [...d, proposal.id]); proposals.refresh(); }}
-            /> : <Conversation messages={messages} waiting={waiting} />}
+            /> : <Conversation messages={messages} waiting={waiting} learning={learning} onThinking={setTyping} onLearned={() => setCelebrating(true)} onResolved={resolved} />}
           <div ref={end} />
         </div>
       </div>
       <div className={cn("px-4", home && "pb-6")}>
-        <div className="mx-auto w-full max-w-2xl"><Composer disabled={waiting} onSend={send} /></div>
+        <div className="mx-auto w-full max-w-2xl"><Composer disabled={waiting} learning={learning} onSend={send} onLearn={learn} onTranscribing={setTranscribing} /></div>
       </div>
     </section>
   );

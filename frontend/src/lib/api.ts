@@ -154,4 +154,10 @@ export const api = {
     if (file) form.append("file", file);
     return request<ChatReply>("/chat", { method: "POST", body: form });
   },
+  transcribe: (audio: Blob) => {
+    if (USE_MOCKS) return mock<{ text: string }>({ text: "Busca facturas de Northwind" }, 1600);
+    const form = new FormData();
+    form.append("audio", audio, "dictado.webm");
+    return request<{ text: string }>("/transcribe", { method: "POST", body: form });
+  },
 };

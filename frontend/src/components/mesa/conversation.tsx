@@ -4,15 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { api } from "@/lib/api";
-import type { ChatCard, RuleDraft } from "@/lib/api-types";
+import type { ChatCard, ProposalView, RuleDraft, TraceStep } from "@/lib/api-types";
 import { money } from "@/lib/format";
 import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
+import { Mascot } from "@/components/mascot/mascot";
+import { TraceList } from "@/components/trace-list";
+import { AgentMessage } from "./agent-message";
 import { StatusDot } from "./status-dot";
 
 export type Message =
   | { role: "user"; text: string; file?: string }
-  | { role: "agent"; text: string; cards: ChatCard[] };
+  | { role: "agent"; text: string; cards: ChatCard[]; trace?: TraceStep[] }
+  | { role: "proposal"; proposal: ProposalView };
 
 const EFFECT: Record<RuleDraft["effect"], string> = { ALLOW: "Permitir", ESCALATE: "Escalar", HOLD: "Frenar" };
 
@@ -78,7 +82,16 @@ function Card({ card }: { card: ChatCard }) {
   return null;
 }
 
-export function Conversation({ messages, waiting }: { messages: Message[]; waiting: boolean }) {
+interface Props {
+  messages: Message[];
+  waiting: boolean;
+  learning: boolean;
+  onThinking: (thinking: boolean) => void;
+  onLearned: () => void;
+  onResolved: (index: number, kind: "accept" | "reject") => void;
+}
+
+export function Conversation({ messages, waiting, learning, onThinking, onLearned, onResolved }: Props) {
   return (
     <div className="space-y-5">
       {messages.map((m, idx) =>
@@ -87,15 +100,24 @@ export function Conversation({ messages, waiting }: { messages: Message[]; waiti
             {m.file && <span className="text-xs text-muted-foreground">{m.file}</span>}
             {m.text && <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-sm">{m.text}</p>}
           </div>
+        ) : m.role === "proposal" ? (
+          <AgentMessage key={m.proposal.id} proposal={m.proposal} onThinking={onThinking} onLearned={onLearned} onResolved={(kind) => onResolved(idx, kind)} />
         ) : (
           <div key={idx} className="flex gap-3">
             <span className="mt-2 size-2 shrink-0 rounded-full bg-brand" />
             <div className="min-w-0 flex-1 space-y-3">
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
+              {m.trace && m.trace.length > 0 && <TraceList steps={m.trace} animate className="space-y-2" />}
               {m.cards.map((c, i) => <Card key={i} card={c} />)}
             </div>
           </div>
         ),
+      )}
+      {learning && (
+        <div className="flex items-center gap-3" role="status">
+          <Mascot state="thinking" size={44} />
+          <span className="text-sm text-muted-foreground">Reviso tus decisiones recientes…</span>
+        </div>
       )}
       {waiting && (
         <div className="flex items-center gap-3" aria-label="El agente está escribiendo">

@@ -289,7 +289,7 @@ export const revised = (id: string, instruction: string): RuleView => {
 export const proposalTrace: TraceStep[] = [
   { label: "Revisé 4 decisiones tuyas", detail: "4 aprobadas, 0 rechazadas" },
   { label: "Encontré un patrón", detail: "Northwind Software Inc., aprobadas 3 de 3, todas con «Sin orden de compra»" },
-  { label: "Comprobé que no anula ningún Frenar ni el umbral de aprobación", detail: "Una regla de permitir solo levanta escalaciones anulables" },
+  { label: "Límites que respeta", detail: "Una excepción solo levanta escalaciones anulables: nunca anula un Frenar ni el umbral de aprobación." },
   { label: "Propuesta lista", detail: "Northwind sin orden de compra" },
 ];
 
