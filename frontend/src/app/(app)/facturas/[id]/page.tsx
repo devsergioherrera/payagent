@@ -72,7 +72,7 @@ export default function Page() {
           <Section title="Datos extraídos" icon={ScanText} >
             <dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3">
               <Field label="Proveedor" value={extracted.vendor_name_raw ?? "—"} />
-              <Field label="NIT" value={extracted.vendor_tax_id ?? "—"} />
+              <Field label="Identificación fiscal" value={extracted.vendor_tax_id ?? "—"} />
               <Field label="N.º factura" value={extracted.invoice_number ?? "—"} />
               <Field label="Monto" value={money(extracted.amount, extracted.currency ?? "USD")} />
               <Field label="Monto en USD" value={money(extracted.amount_usd, "USD")} />
@@ -80,7 +80,7 @@ export default function Page() {
               <Field label="Emisión" value={shortDate(extracted.issue_date)} />
               <Field label="Vence" value={shortDate(extracted.due_date)} />
               <Field label="Orden de compra" value={extracted.po_number ?? "—"} />
-              <Field label="Cuenta bancaria" value={extracted.bank_account ?? "—"} />
+              <Field label="Cuenta bancaria" value={<span className="font-mono text-[13px] break-all">{extracted.bank_account ?? "—"}</span>} />
               <Field label="Moneda original" value={extracted.currency ?? "—"} />
               <Field label="Confianza de lectura" value={extracted.confidence != null ? `${Math.round(extracted.confidence * 100)} %` : "—"} />
             </dl>
@@ -89,7 +89,7 @@ export default function Page() {
 
         <div className="space-y-4 lg:col-span-7">
           {pendingHuman && <Decision id={id} onDone={refresh} />}
-          {!processing && hits.length > 0 && <Rules hits={hits} />}
+          {!processing && hits.length > 0 && <Rules hits={hits} fromHistory={summary.source === "SEED"} />}
         </div>
       </div>
 

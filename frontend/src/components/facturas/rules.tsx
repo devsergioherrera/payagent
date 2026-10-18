@@ -68,10 +68,14 @@ function DeterministicBadge() {
   );
 }
 
-export function Rules({ hits }: { hits: Hit[] }) {
+export function Rules({ hits, fromHistory = false }: { hits: Hit[]; fromHistory?: boolean }) {
   return (
     <Section title="Reglas evaluadas" icon={ListChecks} aside={<DeterministicBadge />} bodyClassName="p-0">
-      <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">Cada regla se compara con los datos de esta factura. Primero lo que cambió el resultado.</p>
+      <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">
+        {fromHistory
+          ? "Factura de ejemplo del historial: solo se guardó la regla que decidió."
+          : "Cada regla se compara con los datos de esta factura. Primero lo que cambió el resultado."}
+      </p>
       <div className="max-h-[420px] space-y-1 overflow-y-auto px-4 py-3 lg:max-h-[260px]">
         {groups(hits).map((g) => <GroupBlock key={g.key} group={g} />)}
       </div>

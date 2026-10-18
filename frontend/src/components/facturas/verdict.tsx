@@ -47,7 +47,10 @@ export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; proce
           </p>
         )}
         {explanation && !processing && (
-          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{explanation}</p>
+          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            {approval && <span className="font-medium text-foreground">Por qué la escaló el agente: </span>}
+            {approval ? explanation.replace(/^(Escalada|Frenada|Pagada):\s*/, "") : explanation}
+          </p>
         )}
       </div>
       {!processing && <Stepper invoice={invoice} />}

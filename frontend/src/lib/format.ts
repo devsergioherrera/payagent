@@ -15,9 +15,12 @@ export function money(amount: number | null | undefined, currency = "USD", digit
   return new Intl.NumberFormat("es-CO", { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits > 2 ? digits : undefined, maximumFractionDigits: digits }).format(amount);
 }
 
+// A bare "2026-10-09" parses as UTC midnight, which is the 8th in Colombia: read date-only values at local noon.
+const toDate = (iso: string) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso);
+
 export function shortDate(iso: string | null | undefined) {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(toDate(iso));
 }
 
 export function time(iso: string) {
@@ -67,7 +70,7 @@ export function costUsd(v: number) {
 
 // "17 oct" style date used for final states.
 export function dayMonth(iso: string) {
-  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(new Date(iso)).replace(".", "").replace(" de ", " ");
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(toDate(iso)).replace(".", "").replace(" de ", " ");
 }
 
 // "2026-10-01" -> "octubre". Noon avoids a timezone shift to the previous day.
