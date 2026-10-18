@@ -29,6 +29,14 @@ def main(assume_yes: bool) -> None:
     with get_pool().connection() as conn:
         if dropped := drop_test_rules(conn):
             print(f"Deleted {dropped} test rules.")
+        # The feedback loop must find the seed approvals unreviewed and no learned rules or proposals.
+        conn.execute("update approval set reviewed_in_operation_id = null")
+        conn.execute("delete from rule_proposal")
+        agent_rules = "select id from rule where origin = 'AGENT'"
+        conn.execute(f"delete from decision_rule_hit where rule_id in ({agent_rules})")
+        conn.execute(f"delete from rule_condition where rule_id in ({agent_rules})")
+        conn.execute("update rule set replaces_rule_id = null where origin = 'AGENT'")
+        conn.execute("delete from rule where origin = 'AGENT'")
         rows = conn.execute("select id, file_path from invoice where source <> 'SEED'").fetchall()
         ids = [r[0] for r in rows]
         if not ids:
