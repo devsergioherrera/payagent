@@ -35,9 +35,9 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () => void }) {
+export function RuleList({ rules, onChange, initialEffects = [] }: { rules: RuleView[]; onChange: () => void; initialEffects?: Effect[] }) {
   const [query, setQuery] = useState("");
-  const [effects, setEffects] = useState<Effect[]>([]);
+  const [effects, setEffects] = useState<Effect[]>(initialEffects);
   const [origin, setOrigin] = useState<RuleView["origin"] | null>(null);
   const [showOff, setShowOff] = useState(false);
   const [group, setGroup] = useState("all");

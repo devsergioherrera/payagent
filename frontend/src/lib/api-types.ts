@@ -120,3 +120,13 @@ export interface ActivityItem {
   id: string; kind: ActivityKind; title: string; detail: string;
   invoice_id?: string | null; proposal_id?: string | null; at: string;
 }
+
+export interface BudgetStatus {
+  period: string; amount_usd: number; paid_usd: number; approved_usd: number; available_usd: number; invoices_paid: number;
+}
+export type PolicyKey = "payment_limit" | "human_approval" | "po_tolerance" | "po_overdraft" | "date_window";
+export interface PolicyLimit {
+  key: PolicyKey; label: string; rule_id: string; value: number | null; unit: "USD" | "%" | "días"; effect: Effect; active: boolean;
+}
+export interface Policy { budget: BudgetStatus; limits: PolicyLimit[]; blocked_vendors: number; exceptions: number }
+export interface BudgetUpdate { period: string; amount_usd: number }

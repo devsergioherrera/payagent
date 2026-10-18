@@ -1,7 +1,7 @@
 // The only way screens talk to the backend. With NEXT_PUBLIC_USE_MOCKS=1 every call returns lib/mocks.ts data.
 import type {
-  ActivityItem, ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
-  Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
+  ActivityItem, BudgetUpdate, ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
+  Page, ProposalView, PurchaseOrderDetail, Policy, PurchaseOrderRow, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
 } from "./api-types";
 import * as mocks from "./mocks";
 
@@ -133,6 +133,13 @@ export const api = {
       : request<PurchaseOrderDetail>(`/purchase-orders/${encodeURIComponent(poNumber)}`),
   activity: (limit = 20) =>
     USE_MOCKS ? mock<ActivityItem[]>(mocks.activity()) : request<ActivityItem[]>(`/activity?limit=${limit}`),
+  policy: () => (USE_MOCKS ? mock<Policy>(mocks.policy) : request<Policy>("/policy")),
+  setBudget: (body: BudgetUpdate) => {
+    if (!USE_MOCKS) return request<Policy>("/budget", { ...json(body), method: "PUT" });
+    mocks.policy.budget.amount_usd = body.amount_usd;
+    mocks.policy.budget.available_usd = body.amount_usd - mocks.policy.budget.paid_usd - mocks.policy.budget.approved_usd;
+    return mock<Policy>(mocks.policy);
+  },
   costs: () => (USE_MOCKS ? mock<Costs>(mocks.costs) : request<Costs>("/costs")),
 
   chat: (message: string, file?: File | null) => {

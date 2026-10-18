@@ -22,6 +22,8 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
   GET  /purchase-orders?q=&vendor_id=&status=&with_balance=&limit=50&offset=0   -> Page[PurchaseOrderRow]
   GET  /purchase-orders/{po_number}   -> PurchaseOrderDetail
   GET  /costs                 -> Costs
+  GET  /policy                -> Policy                           (month budget + the limits set by the active rules)
+  PUT  /budget                BudgetUpdate -> Policy              (upsert one month's total; 422 unless amount > 0 and period is day 1)
   GET  /activity?limit=20     -> list[ActivityItem]               (newest first)
   POST /chat                  multipart: `message` + optional `file` -> ChatReply
 """
@@ -29,7 +31,7 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 Outcome = Literal["PAY", "HOLD", "ESCALATE"]
 DecisionStatus = Literal["FINAL", "PENDING_HUMAN", "RESOLVED"]
@@ -319,3 +321,51 @@ class ChatReply(BaseModel):
     text: str
     cards: list[ChatCard]
     invoice_id: str | None = None  # set when the message carried an invoice to process
+
+
+class BudgetStatus(BaseModel):
+    period: date  # first day of the month
+    amount_usd: float
+    paid_usd: float  # paid by the agent (decision PAY)
+    approved_usd: float  # escalated, then approved by a human
+    available_usd: float  # amount - paid - approved; negative when overdrawn
+    invoices_paid: int  # invoices counted against the budget
+
+
+PolicyUnit = Literal["USD", "%", "días"]
+
+
+class PolicyLimit(BaseModel):
+    key: Literal["payment_limit", "human_approval", "po_tolerance", "po_overdraft", "date_window"]
+    label: str
+    rule_id: str  # the active successor of the seed rule, so a change can revise exactly that rule
+    value: float | None  # None when the current rule no longer has that threshold
+    unit: PolicyUnit
+    effect: Effect
+    active: bool
+
+
+class Policy(BaseModel):
+    budget: BudgetStatus
+    limits: list[PolicyLimit]
+    blocked_vendors: int
+    exceptions: int  # active ALLOW rules
+
+
+class BudgetUpdate(BaseModel):
+    period: date
+    amount_usd: float
+
+    @field_validator("period")
+    @classmethod
+    def _first_day(cls, v: date) -> date:
+        if v.day != 1:
+            raise ValueError("period must be the first day of a month")
+        return v
+
+    @field_validator("amount_usd")
+    @classmethod
+    def _positive(cls, v: float) -> float:
+        if not v > 0:
+            raise ValueError("amount_usd must be greater than 0")
+        return v
