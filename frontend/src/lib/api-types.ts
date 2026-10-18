@@ -85,6 +85,14 @@ export interface VendorView {
   purchase_orders: PurchaseOrderView[]; invoices: number; paid_usd: number;
 }
 
+export interface Page<T> { items: T[]; total: number }
+export interface PurchaseOrderRow {
+  po_number: string; vendor_id: string; vendor_name: string; description: string | null;
+  amount: number; currency: string; amount_usd: number; invoiced_usd: number; remaining_usd: number;
+  invoices: number; status: "OPEN" | "CLOSED"; last_invoice_at: string | null;
+}
+export interface PurchaseOrderDetail { po: PurchaseOrderRow; invoices: InvoiceSummary[] }
+
 export type OperationType = "PROCESS_INVOICE" | "PROPOSE_RULES" | "CHAT" | "RULE_DRAFT";
 export interface OperationRow {
   id: string; type: OperationType; status: "RUNNING" | "DONE" | "FAILED"; invoice_id: string | null;

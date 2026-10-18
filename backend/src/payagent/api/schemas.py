@@ -3,7 +3,7 @@
 Endpoints (all under /api, all but /auth/login need the session cookie):
   POST /auth/login            LoginRequest -> 204 + cookie       POST /auth/logout -> 204
   GET  /summary               -> Summary
-  GET  /invoices?outcome=&status=&q=   -> list[InvoiceSummary]
+  GET  /invoices?outcome=&status=&q=&vendor_id=&limit=200&offset=0   -> list[InvoiceSummary] + header X-Total-Count
   POST /invoices              multipart (file) or form field `text` -> Created
   GET  /invoices/{id}         -> InvoiceDetail
   GET  /invoices/{id}/file    -> original document
@@ -16,7 +16,10 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
   GET  /proposals?status=     -> list[ProposalView]
   POST /proposals/run         -> ProposalRun                      (409 if one is already running)
   POST /proposals/{id}/accept -> RuleView      POST /proposals/{id}/reject -> ProposalView
-  GET  /vendors               -> list[VendorView]
+  GET  /vendors?q=&status=&country=&limit=50&offset=0   -> Page[VendorView]
+  GET  /vendors/{id}          -> VendorView
+  GET  /purchase-orders?q=&vendor_id=&status=&with_balance=&limit=50&offset=0   -> Page[PurchaseOrderRow]
+  GET  /purchase-orders/{po_number}   -> PurchaseOrderDetail
   GET  /costs                 -> Costs
   POST /chat                  multipart: `message` + optional `file` -> ChatReply
 """
@@ -222,6 +225,31 @@ class VendorView(BaseModel):
     purchase_orders: list[PurchaseOrderView]
     invoices: int
     paid_usd: float
+
+
+class Page[T](BaseModel):
+    items: list[T]
+    total: int
+
+
+class PurchaseOrderRow(BaseModel):
+    po_number: str
+    vendor_id: str
+    vendor_name: str
+    description: str | None
+    amount: float
+    currency: str
+    amount_usd: float
+    invoiced_usd: float  # invoices citing the PO that were paid or approved
+    remaining_usd: float
+    invoices: int
+    status: Literal["OPEN", "CLOSED"]
+    last_invoice_at: datetime | None
+
+
+class PurchaseOrderDetail(BaseModel):
+    po: PurchaseOrderRow
+    invoices: list[InvoiceSummary]
 
 
 class OperationRow(BaseModel):

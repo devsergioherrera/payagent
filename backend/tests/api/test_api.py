@@ -210,7 +210,7 @@ def test_search_and_pending_queries(client: TestClient, cleanup):
     assert q.search_invoices("   ") == []
     assert inv in [r.id for r in q.pending_invoices(300)]
     assert q.invoice_summary(inv).id == inv
-    vendor = q.vendors()[0]
+    vendor = q.vendors().items[0]
     assert [v.id for v in q.vendors_by_id([vendor.id])] == [vendor.id]
     assert len(q.search_invoices(vendor.tax_id, 3)) <= 3
 
@@ -229,3 +229,83 @@ def test_upload_returns_id_and_runs_pipeline(client: TestClient, pipeline, clean
     text = client.post("/invoices", data={"text": f"pegado {uuid.uuid4()}"}).json()
     cleanup["invoice"].append(text["invoice_id"])
     assert len(pipeline.calls) == 2
+
+
+@pytest.fixture
+def directory() -> Iterator[dict]:
+    """A test vendor with 3 POs; PO-A has one paid and one undecided invoice."""
+    vendor, tag = str(uuid.uuid4()), uuid.uuid4().hex[:8]
+    pos = [f"test-{tag}-{n}" for n in "ABC"]
+    inv_paid, inv_open = str(uuid.uuid4()), str(uuid.uuid4())
+    with get_pool().connection() as conn:
+        conn.execute(
+            "insert into vendor (id, name, tax_id, country, currency, bank_rail, bank_account, status)"
+            " values (%s, %s, %s, 'MX', 'MXN', 'SPEI', 'test-acct', 'BLOCKED')",
+            (vendor, f"test-Zeta {tag} S.A.", f"test-{tag}"),
+        )
+        for po, status, desc in zip(pos, ("OPEN", "CLOSED", "OPEN"), ("alpha servers", "beta licences", "gamma")):
+            conn.execute(
+                "insert into purchase_order (vendor_id, po_number, amount, currency, description, status)"
+                " values (%s, %s, 1000, 'MXN', %s, %s)", (vendor, po, desc, status),
+            )
+        for inv, status in ((inv_paid, "DECIDED"), (inv_open, "RECEIVED")):
+            conn.execute(
+                "insert into invoice (id, file_sha256, source, source_ref, status, vendor_id, invoice_number, amount,"
+                " currency, amount_usd, po_number) values (%s, %s, 'UPLOAD', 'test', %s, %s, %s, 4000, 'MXN', 220, %s)",
+                (inv, uuid.uuid4().hex, status, vendor, f"test-{inv[:6]}", pos[0]),
+            )
+        conn.execute(
+            "insert into decision (invoice_id, outcome, status, explanation, explained_by)"
+            " values (%s, 'PAY', 'FINAL', 'ok', 'TEMPLATE')", (inv_paid,),
+        )
+    yield {"vendor": vendor, "tag": tag, "pos": pos, "invoices": [inv_paid, inv_open]}
+    with get_pool().connection() as conn:
+        conn.execute("delete from decision where invoice_id in (select id from invoice where vendor_id = %s)", (vendor,))
+        conn.execute("delete from invoice where vendor_id = %s", (vendor,))
+        conn.execute("delete from purchase_order where vendor_id = %s", (vendor,))
+        conn.execute("delete from vendor where id = %s", (vendor,))
+
+
+def test_purchase_orders_filters_and_pagination(client: TestClient, directory):
+    pos, tag = directory["pos"], directory["tag"]
+    page = client.get("/purchase-orders", params={"q": tag}).json()
+    assert page["total"] == 3
+    first = page["items"][0]
+    assert first["po_number"] == pos[0]  # the one with invoice activity sorts first
+    assert (first["invoices"], first["amount_usd"], first["invoiced_usd"], first["remaining_usd"]) == (2, 55.0, 220.0, -165.0)
+    assert first["vendor_name"].startswith("test-Zeta") and first["last_invoice_at"]
+    assert client.get("/purchase-orders", params={"q": f"test-Zeta {tag}"}).json()["total"] == 3  # vendor name
+    assert client.get("/purchase-orders", params={"q": directory["tag"], "status": "CLOSED"}).json()["total"] == 1
+    assert client.get("/purchase-orders", params={"q": "beta licences"}).json()["items"][0]["po_number"] == pos[1]
+    by_vendor = {"vendor_id": directory["vendor"]}
+    assert client.get("/purchase-orders", params=by_vendor).json()["total"] == 3
+    assert client.get("/purchase-orders", params={**by_vendor, "with_balance": "true"}).json()["total"] == 1
+    two = client.get("/purchase-orders", params={**by_vendor, "limit": 2}).json()
+    rest = client.get("/purchase-orders", params={**by_vendor, "limit": 2, "offset": 2}).json()
+    assert two["total"] == rest["total"] == 3 and len(two["items"]) == 2 and len(rest["items"]) == 1
+    assert client.get("/purchase-orders", params={"vendor_id": "nope"}).json() == {"items": [], "total": 0}
+
+
+def test_purchase_order_detail(client: TestClient, directory):
+    res = client.get(f"/purchase-orders/{directory['pos'][0]}").json()
+    assert res["po"]["invoiced_usd"] == 220.0
+    assert {i["id"] for i in res["invoices"]} == set(directory["invoices"])
+    assert client.get("/purchase-orders/test-missing").status_code == 404
+
+
+def test_vendors_page_and_invoice_pagination(client: TestClient, directory):
+    tag = directory["tag"]
+    page = client.get("/vendors", params={"q": tag}).json()
+    assert page["total"] == 1 and len(page["items"][0]["purchase_orders"]) == 3
+    assert page["items"][0]["invoices"] == 2 and page["items"][0]["paid_usd"] == 220.0
+    assert client.get("/vendors", params={"q": tag, "status": "ALLOWED"}).json()["total"] == 0
+    assert client.get("/vendors", params={"q": tag, "country": "MX"}).json()["total"] == 1
+    assert client.get("/vendors", params={"q": tag, "country": "CO"}).json()["total"] == 0
+    res = client.get("/invoices", params={"vendor_id": directory["vendor"], "limit": 1})
+    assert res.headers["x-total-count"] == "2" and len(res.json()) == 1
+    rest = client.get("/invoices", params={"vendor_id": directory["vendor"], "limit": 1, "offset": 1}).json()
+    assert len(rest) == 1 and rest[0]["id"] != res.json()[0]["id"]
+    one = client.get(f"/vendors/{directory['vendor']}").json()
+    assert one["tax_id"] == f"test-{tag}" and len(one["purchase_orders"]) == 3
+    assert client.get(f"/vendors/{uuid.uuid4()}").status_code == 404
+    assert client.get("/vendors/not-a-uuid").status_code == 404
