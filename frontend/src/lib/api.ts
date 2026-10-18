@@ -1,6 +1,6 @@
 // The only way screens talk to the backend. With NEXT_PUBLIC_USE_MOCKS=1 every call returns lib/mocks.ts data.
 import type {
-  ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
+  ActivityItem, ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
   Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
 } from "./api-types";
 import * as mocks from "./mocks";
@@ -106,6 +106,8 @@ export const api = {
     USE_MOCKS
       ? mock<PurchaseOrderDetail>(mocks.purchaseOrderDetail(poNumber))
       : request<PurchaseOrderDetail>(`/purchase-orders/${encodeURIComponent(poNumber)}`),
+  activity: (limit = 20) =>
+    USE_MOCKS ? mock<ActivityItem[]>(mocks.activity()) : request<ActivityItem[]>(`/activity?limit=${limit}`),
   costs: () => (USE_MOCKS ? mock<Costs>(mocks.costs) : request<Costs>("/costs")),
 
   chat: (message: string, file?: File | null) => {

@@ -109,3 +109,9 @@ export interface ChatCard {
   invoice?: InvoiceSummary | null; vendor?: VendorView | null; rule_draft?: RuleDraft | null;
 }
 export interface ChatReply { text: string; cards: ChatCard[]; invoice_id?: string | null }
+
+export type ActivityKind = "ESCALATED" | "HELD" | "PAID" | "PROPOSAL" | "EMAIL_FAILED";
+export interface ActivityItem {
+  id: string; kind: ActivityKind; title: string; detail: string;
+  invoice_id?: string | null; proposal_id?: string | null; at: string;
+}

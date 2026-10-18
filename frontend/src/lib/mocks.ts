@@ -1,6 +1,6 @@
 // Example data with the exact API shapes. Screens build against this until the API is live.
 import type {
-  Costs, Hit, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
+  ActivityItem, Costs, Hit, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
   Summary, VendorView,
 } from "./api-types";
 
@@ -326,3 +326,12 @@ export const costs: Costs = {
     { id: "o1", type: "PROCESS_INVOICE", status: "DONE", invoice_id: "i-2043", started_at: "2026-10-17T14:12:00Z", cost: { cost_usd: 0.0011, duration_ms: 2300, input_tokens: 2140, output_tokens: 310 } },
   ],
 };
+
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+export const activity = (): ActivityItem[] => [
+  { id: "d1", kind: "ESCALATED", title: "Espera tu decisión: Northwind Software", detail: "4,200.00 USD", invoice_id: "i-2043", at: minutesAgo(2) },
+  { id: "p1", kind: "PROPOSAL", title: "Regla propuesta", detail: "Northwind sin orden de compra", proposal_id: "p1", at: minutesAgo(18) },
+  { id: "d2", kind: "HELD", title: "Frenada: Servicios Cloud Andinos", detail: "12,900.00 USD", invoice_id: "i-2041", at: minutesAgo(55) },
+  { id: "n1", kind: "EMAIL_FAILED", title: "No se pudo enviar un correo", detail: "A compras@andinos.example", invoice_id: "i-2041", at: minutesAgo(56) },
+  { id: "d3", kind: "PAID", title: "Pagada: Papelería Central", detail: "320.50 USD", invoice_id: "i-2040", at: minutesAgo(190) },
+];
