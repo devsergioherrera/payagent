@@ -16,6 +16,7 @@ from payagent.adapters.postgres import (
 from payagent.adapters.postgres.vendors import search_vendors
 from payagent.adapters.upload.storage import FileStorage
 from payagent.adapters.postgres.queries import ApiQueries
+from payagent.app.transcribe import TranscribeService
 from payagent.app.chat import ChatService
 from payagent.app.draft_rule import RuleDrafter
 from payagent.app.pipeline import AgentPipeline
@@ -71,6 +72,14 @@ def build_chat() -> ChatService:
         drafter=build_drafter(),
         queries=ApiQueries(),
         find_vendors=search_vendors,
+        meter=PostgresUsageMeter(),
+        operations=PostgresOperations(),
+    )
+
+
+def build_transcriber() -> TranscribeService:
+    return TranscribeService(
+        client=genai.Client(api_key=settings.gemini_api_key),
         meter=PostgresUsageMeter(),
         operations=PostgresOperations(),
     )

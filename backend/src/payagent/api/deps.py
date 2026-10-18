@@ -109,3 +109,10 @@ def get_chat():
     from payagent.app.wiring import build_chat
 
     return build_chat()
+
+
+@lru_cache
+def get_transcriber():
+    from payagent.app.wiring import build_transcriber
+
+    return build_transcriber()

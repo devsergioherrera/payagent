@@ -271,7 +271,7 @@ def test_run_trace_is_built_from_the_real_run():
     assert labels[0] == "Revisé 3 decisiones tuyas" and run.trace[0].detail == "3 aprobadas, 0 rechazadas"
     assert run.trace[1].label == "Encontré un patrón"
     assert run.trace[1].detail == f"{NORTHWIND}, aprobadas 3 de 3, todas con «Sin orden de compra»"
-    assert "Comprobé que no anula ningún Frenar ni el umbral de aprobación" in labels
+    assert "Límites que respeta" in labels
     assert run.trace[-1].label == "Propuesta lista" and run.trace[-1].detail == "Northwind sin orden"
     assert svc.operations.detail == [{"label": t.label, "detail": t.detail} for t in run.trace]
 
