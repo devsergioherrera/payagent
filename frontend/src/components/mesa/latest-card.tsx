@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import type { InvoiceSummary } from "@/lib/api-types";
 import { isProcessing, money } from "@/lib/format";
-import { OutcomeBadge } from "@/components/outcome-badge";
+import { StateBadge } from "@/components/state-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ export function LatestCard({ invoice }: { invoice: InvoiceSummary }) {
           <Stepper status={invoice.status} />
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            {invoice.outcome && <OutcomeBadge outcome={invoice.outcome} />}
+            <StateBadge state={invoice.state} />
             <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{invoice.headline ?? "Sin reglas disparadas"}</span>
             <Link href={`/facturas/${invoice.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>Ver factura</Link>
           </div>

@@ -283,3 +283,26 @@ def test_second_invoice_that_overdraws_the_po_fires_rule_16(created):
     assert facts.value(ColumnRef("po_check", "saldo_oc_despues_pct")) < -5
     decision = evaluate(rules, facts)
     assert [h.result for h in decision.hits] == [HitResult.FIRED] and decision.outcome is Outcome.ESCALATE
+
+
+@pytest.mark.db
+def test_backfill_seed_hits_is_idempotent():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))
+    from backfill_seed_hits import backfill
+
+    backfill()
+    with get_pool().connection() as conn:
+        counts = conn.execute(
+            "select count(*) from decision_rule_hit h join decision d on d.id = h.decision_id"
+            " join invoice i on i.id = d.invoice_id where i.source = 'SEED'"
+        ).fetchone()[0]
+    assert backfill() == 0
+    with get_pool().connection() as conn:
+        again = conn.execute(
+            "select count(*) from decision_rule_hit h join decision d on d.id = h.decision_id"
+            " join invoice i on i.id = d.invoice_id where i.source = 'SEED'"
+        ).fetchone()[0]
+    assert again == counts

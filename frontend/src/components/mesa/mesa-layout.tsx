@@ -38,7 +38,7 @@ function Desktop({ summary, invoices }: Props) {
 
   // With nothing pending the right rail folds to its icon strip; it reopens by itself when something arrives
   // unless the user has taken over.
-  const pending = invoices ? invoices.filter((i) => i.decision_status === "PENDING_HUMAN" && i.outcome === "ESCALATE").length : null;
+  const pending = invoices ? invoices.filter((i) => i.state === "WAITING").length : null;
   const manual = useRef(false);
   const auto = useRef(false);
   useEffect(() => {

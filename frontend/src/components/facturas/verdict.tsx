@@ -1,12 +1,10 @@
 "use client";
 
-import { Bot, CircleCheck, OctagonX, ShieldAlert } from "lucide-react";
-import { dayTime, OUTCOME_LABEL, OUTCOME_STYLE } from "@/lib/format";
+import { dayTime } from "@/lib/format";
+import { STATE } from "@/lib/state";
 import { cn } from "@/lib/utils";
 import { Stepper } from "./stepper";
 import type { Hit, InvoiceDetail, Outcome } from "@/lib/api-types";
-
-const ICON = { PAY: CircleCheck, HOLD: OctagonX, ESCALATE: ShieldAlert } as const;
 
 export function decidingHit(hits: Hit[], outcome: Outcome | null): Hit | undefined {
   if (outcome === "PAY") return undefined;
@@ -18,12 +16,7 @@ export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; proce
   const { summary, hits, explanation, approval } = invoice;
   const outcome = summary.outcome;
   const rule = decidingHit(hits, outcome);
-  // The header shows where the invoice ended up: a human resolution replaces "Escalada".
-  const approved = approval?.verdict === "APPROVED";
-  const pending = outcome === "ESCALATE" && summary.decision_status === "PENDING_HUMAN";
-  const Icon = approval ? (approved ? CircleCheck : OctagonX) : outcome ? ICON[outcome] : Bot;
-  const pillStyle = approval ? OUTCOME_STYLE[approved ? "PAY" : "HOLD"] : outcome ? OUTCOME_STYLE[outcome] : "bg-brand-soft text-brand";
-  const pillText = approval ? `${approved ? "Aprobada" : "Rechazada"} por ti` : pending ? `${OUTCOME_LABEL.ESCALATE} · espera tu decisión` : outcome ? OUTCOME_LABEL[outcome] : "Procesando";
+  const { label: pillText, tone: pillStyle, icon: Icon } = STATE[summary.state];
   const title = processing || !outcome
     ? "El agente está leyendo y evaluando esta factura"
     : outcome === "PAY" ? "Todas las reglas se cumplieron" : (rule?.rule_name ?? summary.headline ?? "Sin regla decisiva");
@@ -35,7 +28,7 @@ export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; proce
             "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
             pillStyle,
           )}>
-            <Icon className={cn("size-4", !outcome && "animate-pulse")} />
+            <Icon className={cn("size-4", summary.state === "PROCESSING" && "animate-spin motion-reduce:animate-none")} />
             {pillText}
           </span>
           <h2 className="min-w-0 text-base sm:truncate font-semibold tracking-tight">{title}</h2>

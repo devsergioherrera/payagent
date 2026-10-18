@@ -128,7 +128,7 @@ class ChatService:
                 self.queries.pending_invoices(MAX_INVOICES) if name == "pendientes" else [])
             cards.extend(ChatCard(kind="invoice", invoice=r) for r in rows)
             return {"facturas": [{"proveedor": r.vendor_name, "numero": r.invoice_number, "monto_usd": r.amount_usd,
-                                  "estado": r.decision_status or r.status} for r in rows]}
+                                  "estado": r.state} for r in rows]}
         if name == "redactar_regla":
             drafted = self.drafter.draft(text)
             if drafted.draft is None:

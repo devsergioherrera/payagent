@@ -7,6 +7,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from payagent.adapters.postgres.db import get_pool, json_dumps
+from payagent.adapters.postgres.invoice_state import INVOICE_STATE_SQL
 from payagent.adapters.postgres.repositories import PostgresDecisionSession
 from payagent.api.schemas import InvoiceSummary
 from payagent.app.propose_rules import NewProposal, RuleInfo, StoredProposal
@@ -40,7 +41,7 @@ def conditions_from_json(raw: list[dict]) -> tuple[Condition, ...]:
 
 
 _SUMMARY_SQL = """
-select i.id, i.status, coalesce(v.name, i.vendor_name_raw), i.invoice_number, i.amount, i.currency, i.amount_usd,
+select i.id, i.status, {state}, coalesce(v.name, i.vendor_name_raw), i.invoice_number, i.amount, i.currency, i.amount_usd,
        i.received_at, i.source, d.outcome, d.status,
        (select h.rule_name from decision_rule_hit h
         where h.decision_id = d.id and h.result = 'FIRED' order by h.rule_name limit 1),
@@ -50,7 +51,7 @@ left join vendor v on v.id = i.vendor_id
 left join decision d on d.invoice_id = i.id
 left join approval a on a.decision_id = d.id
 where i.id = any(%s::uuid[])
-"""
+""".replace("{state}", INVOICE_STATE_SQL)
 
 
 class PostgresProposals:
@@ -131,10 +132,10 @@ class PostgresProposals:
             evidence_ids = sorted({str(e) for r in rows for e in r[7]})
             summaries = {
                 str(r[0]): InvoiceSummary(
-                    id=str(r[0]), status=r[1], vendor_name=r[2], invoice_number=r[3],
-                    amount=float(r[4]) if r[4] is not None else None, currency=r[5],
-                    amount_usd=float(r[6]) if r[6] is not None else None, received_at=r[7], source=r[8],
-                    outcome=r[9], decision_status=r[10], headline=r[11], decided_by=r[12],
+                    id=str(r[0]), status=r[1], state=r[2], vendor_name=r[3], invoice_number=r[4],
+                    amount=float(r[5]) if r[5] is not None else None, currency=r[6],
+                    amount_usd=float(r[7]) if r[7] is not None else None, received_at=r[8], source=r[9],
+                    outcome=r[10], decision_status=r[11], headline=r[12], decided_by=r[13],
                 )
                 for r in conn.execute(_SUMMARY_SQL, (evidence_ids,)).fetchall()
             }

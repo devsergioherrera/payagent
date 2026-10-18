@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import type { InvoiceSummary, Source } from "@/lib/api-types";
-import { invoiceState, money, shortDate } from "@/lib/format";
-import { OutcomeBadge } from "@/components/outcome-badge";
+import { money, shortDate } from "@/lib/format";
+import { STATE } from "@/lib/state";
+import { StateBadge } from "@/components/state-badge";
 import { StatusDot } from "@/components/mesa/status-dot";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -13,7 +14,7 @@ const SOURCE: Record<Source, string> = {
 const DECIDER = { AGENT: "Agente", HUMAN: "Tú" } as const;
 
 // One grid for header and rows so the columns line up; below md each row collapses to two lines.
-const COLS = "md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_104px_72px] md:items-center md:gap-4";
+const COLS = "md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_156px_64px] md:items-center md:gap-4";
 
 export default function Outlet({ invoices, listClassName }: { invoices: InvoiceSummary[]; listClassName?: string }) {
   if (invoices.length === 0) {
@@ -21,7 +22,7 @@ export default function Outlet({ invoices, listClassName }: { invoices: InvoiceS
   }
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border bg-card">
-      <div className={`hidden border-b px-5 py-3 text-xs text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_104px_72px] md:gap-4`}>
+      <div className={`hidden border-b px-5 py-3 text-xs text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_88px_72px_150px_80px_156px_64px] md:gap-4`}>
         <span>Proveedor</span><span>Número</span><span>Fecha</span><span className="text-right">Monto</span>
         <span>Fuente</span><span>Resultado</span><span>Decidió</span>
       </div>
@@ -35,7 +36,7 @@ export default function Outlet({ invoices, listClassName }: { invoices: InvoiceS
                 <span className="shrink-0 text-sm font-medium tabular-nums md:hidden">{money(i.amount, i.currency ?? "USD")}</span>
               </div>
               <p className="mt-0.5 truncate pl-5 text-xs text-muted-foreground md:hidden">
-                {[i.invoice_number, shortDate(i.received_at), invoiceState(i)].filter(Boolean).join(" · ")}
+                {[i.invoice_number, shortDate(i.received_at), STATE[i.state].label].filter(Boolean).join(" · ")}
               </p>
               <span className="hidden text-[13px] tabular-nums md:block">{i.invoice_number ?? "—"}</span>
               <span className="hidden text-[13px] tabular-nums text-muted-foreground md:block">{shortDate(i.received_at)}</span>
@@ -53,7 +54,7 @@ export default function Outlet({ invoices, listClassName }: { invoices: InvoiceS
               </div>
               <span className="hidden text-[13px] text-muted-foreground md:block">{SOURCE[i.source]}</span>
               <span className="hidden md:block">
-                {i.outcome ? <OutcomeBadge outcome={i.outcome} /> : <span className="text-xs text-muted-foreground">Procesando</span>}
+                <StateBadge state={i.state} />
               </span>
               <span className="hidden text-[13px] text-muted-foreground md:block">{i.decided_by ? DECIDER[i.decided_by] : "—"}</span>
             </Link>

@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function PendingRail({ invoices, className, collapsed, onToggle }: Props) {
-  const rows = (invoices ?? []).filter((i) => i.decision_status === "PENDING_HUMAN" && i.outcome === "ESCALATE");
+  const rows = (invoices ?? []).filter((i) => i.state === "WAITING");
 
   if (collapsed) {
     return (
@@ -70,7 +70,7 @@ export function PendingRail({ invoices, className, collapsed, onToggle }: Props)
         )}
       </div>
       <div className="border-t px-4 py-3">
-        <Link href="/facturas?outcome=HOLD" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+        <Link href="/facturas?state=HELD" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
           <OctagonX className="size-3.5" /> Ver frenadas <ArrowUpRight className="size-3.5" />
         </Link>
       </div>

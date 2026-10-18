@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Mascot, type MascotState } from "@/components/mascot/mascot";
 import { api } from "@/lib/api";
-import type { InvoiceSummary, Summary } from "@/lib/api-types";
+import type { InvoiceState, InvoiceSummary, Summary } from "@/lib/api-types";
 import { usePolling } from "@/hooks/use-polling";
-import { ago, greeting, isProcessing, OUTCOME_STYLE } from "@/lib/format";
+import { ago, greeting, isProcessing } from "@/lib/format";
+import { STATE } from "@/lib/state";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ACTIVITY_KIND } from "@/components/shell/notifications";
@@ -24,7 +25,9 @@ function Chip({ label, value, className }: { label: string; value: number; class
   );
 }
 
-const OUTCOME_MASCOT = { PAY: "paid", ESCALATE: "escalated", HOLD: "held" } as const;
+const STATE_MASCOT: Partial<Record<InvoiceState, MascotState>> = {
+  PAID: "paid", APPROVED: "paid", WAITING: "escalated", HELD: "held", REJECTED: "held",
+};
 
 // Thinking while the newest invoice is processed, then its outcome for a few seconds, then idle.
 function useMascotState(latest: InvoiceSummary | undefined, busy: boolean): MascotState {
@@ -33,7 +36,8 @@ function useMascotState(latest: InvoiceSummary | undefined, busy: boolean): Masc
   const processing = !!latest && isProcessing(latest.status);
   if (latest && (prev.id !== latest.id || prev.processing !== processing)) {
     setPrev({ id: latest.id, processing });
-    if (prev.id !== undefined && !processing && latest.outcome) setReveal(OUTCOME_MASCOT[latest.outcome]);
+    const mood = STATE_MASCOT[latest.state];
+    if (prev.id !== undefined && !processing && mood) setReveal(mood);
   }
   useEffect(() => {
     if (!reveal) return;
@@ -57,7 +61,7 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
       </div>
     );
   }
-  const n = summary.pending_human;
+  const n = summary.waiting;
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -70,9 +74,10 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Chip label="Pagadas" value={summary.paid} className={OUTCOME_STYLE.PAY} />
-        <Chip label="Escaladas" value={summary.escalated} className={OUTCOME_STYLE.ESCALATE} />
-        <Chip label="Frenadas" value={summary.held} className={OUTCOME_STYLE.HOLD} />
+        <Chip label="Pagadas" value={summary.paid} className={STATE.PAID.tone} />
+        <Chip label="Esperan tu decisión" value={summary.waiting} className={STATE.WAITING.tone} />
+        <Chip label="Frenadas" value={summary.held} className={STATE.HELD.tone} />
+        <Chip label="Rechazadas" value={summary.rejected} className={STATE.REJECTED.tone} />
         <span className="ml-1 text-[13px] font-medium text-brand">Autonomía {Math.round(summary.autonomy_pct)} %</span>
       </div>
       {latest && <LatestCard invoice={latest} />}

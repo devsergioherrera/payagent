@@ -14,6 +14,7 @@ export STORAGE_DIR="${STORAGE_DIR:-$repo/storage}"
 cd "$repo/backend"
 
 uv run python scripts/migrate.py
+uv run python scripts/backfill_seed_hits.py
 if [ "${1:-}" = "--run-set" ]; then
   uv run python scripts/run_set.py tests/fixtures/invoices
 fi

@@ -46,7 +46,7 @@ export default function Page() {
   if (!invoice) return <LoadingState />;
 
   const { summary, extracted, hits, cost, file_url } = invoice;
-  const pendingHuman = summary.outcome === "ESCALATE" && summary.decision_status === "PENDING_HUMAN";
+  const pendingHuman = summary.state === "WAITING";
   const processing = isProcessingStatus(summary.status);
 
   return (
