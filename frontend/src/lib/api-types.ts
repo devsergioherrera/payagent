@@ -4,6 +4,7 @@
 export type Outcome = "PAY" | "HOLD" | "ESCALATE";
 export type DecisionStatus = "FINAL" | "PENDING_HUMAN" | "RESOLVED";
 export type InvoiceStatus = "RECEIVED" | "EXTRACTING" | "EVALUATING" | "DECIDED" | "FAILED";
+export type InvoiceState = "PROCESSING" | "FAILED" | "PAID" | "HELD" | "WAITING" | "APPROVED" | "REJECTED";
 export type Effect = "ALLOW" | "ESCALATE" | "HOLD";
 export type Operator =
   | "EQ" | "NEQ" | "GT" | "GTE" | "LT" | "LTE" | "IN" | "NOT_IN"
@@ -15,12 +16,12 @@ export type Source = "EMAIL" | "UPLOAD" | "TEXT" | "CHAT" | "INBOX" | "SEED";
 export interface Created { invoice_id: string | null; duplicate_of: string | null }
 
 export interface Summary {
-  paid: number; held: number; escalated: number; pending_human: number; processing: number;
+  paid: number; waiting: number; held: number; rejected: number; processing: number;
   autonomy_pct: number; email_connected: boolean; email_checked_at: string | null;
 }
 
 export interface InvoiceSummary {
-  id: string; status: InvoiceStatus; vendor_name: string | null; invoice_number: string | null;
+  id: string; status: InvoiceStatus; state: InvoiceState; vendor_name: string | null; invoice_number: string | null;
   amount: number | null; currency: string | null; amount_usd: number | null; received_at: string;
   source: Source; outcome: Outcome | null; decision_status: DecisionStatus | null;
   headline: string | null; decided_by: "AGENT" | "HUMAN" | null;
@@ -115,7 +116,7 @@ export interface ChatCard {
 }
 export interface ChatReply { text: string; cards: ChatCard[]; invoice_id?: string | null }
 
-export type ActivityKind = "ESCALATED" | "HELD" | "PAID" | "PROPOSAL" | "EMAIL_FAILED";
+export type ActivityKind = Exclude<InvoiceState, "PROCESSING" | "FAILED"> | "PROPOSAL" | "EMAIL_FAILED";
 export interface ActivityItem {
   id: string; kind: ActivityKind; title: string; detail: string;
   invoice_id?: string | null; proposal_id?: string | null; at: string;

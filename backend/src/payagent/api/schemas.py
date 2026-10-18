@@ -3,7 +3,7 @@
 Endpoints (all under /api, all but /auth/login need the session cookie):
   POST /auth/login            LoginRequest -> 204 + cookie       POST /auth/logout -> 204
   GET  /summary               -> Summary
-  GET  /invoices?outcome=&status=&q=&vendor_id=&limit=200&offset=0   -> list[InvoiceSummary] + header X-Total-Count
+  GET  /invoices?state=&q=&vendor_id=&from=&to=&limit=200&offset=0   -> list[InvoiceSummary] + header X-Total-Count
   POST /invoices              multipart (file) or form field `text` -> Created
   GET  /invoices/{id}         -> InvoiceDetail
   GET  /invoices/{id}/file    -> original document
@@ -36,6 +36,7 @@ from pydantic import BaseModel, field_validator
 Outcome = Literal["PAY", "HOLD", "ESCALATE"]
 DecisionStatus = Literal["FINAL", "PENDING_HUMAN", "RESOLVED"]
 InvoiceStatus = Literal["RECEIVED", "EXTRACTING", "EVALUATING", "DECIDED", "FAILED"]
+InvoiceState = Literal["PROCESSING", "FAILED", "PAID", "HELD", "WAITING", "APPROVED", "REJECTED"]
 Effect = Literal["ALLOW", "ESCALATE", "HOLD"]
 Operator = Literal[
     "EQ", "NEQ", "GT", "GTE", "LT", "LTE", "IN", "NOT_IN", "BETWEEN", "NOT_BETWEEN", "IS_NULL", "IS_NOT_NULL"
@@ -54,12 +55,12 @@ class Created(BaseModel):
 
 
 class Summary(BaseModel):
-    paid: int
+    paid: int  # PAID + APPROVED
+    waiting: int
     held: int
-    escalated: int
-    pending_human: int
+    rejected: int
     processing: int
-    autonomy_pct: float  # decided without a human / decided
+    autonomy_pct: float  # decided without a human / all decided
     email_connected: bool
     email_checked_at: datetime | None
 
@@ -67,6 +68,7 @@ class Summary(BaseModel):
 class InvoiceSummary(BaseModel):
     id: str
     status: InvoiceStatus
+    state: InvoiceState  # the one visible state; every screen shows this, never a mix of the fields below
     vendor_name: str | None  # registered name, else the raw one
     invoice_number: str | None
     amount: float | None
@@ -302,7 +304,7 @@ class Costs(BaseModel):
 
 class ActivityItem(BaseModel):
     id: str
-    kind: Literal["ESCALATED", "HELD", "PAID", "PROPOSAL", "EMAIL_FAILED"]
+    kind: Literal["PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "PROPOSAL", "EMAIL_FAILED"]
     title: str
     detail: str
     invoice_id: str | None = None

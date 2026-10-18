@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import type { InvoiceSummary, Summary } from "@/lib/api-types";
-import { ago, invoiceState, money, shortDate } from "@/lib/format";
+import { ago, money, shortDate } from "@/lib/format";
+import { STATE } from "@/lib/state";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "./status-dot";
@@ -101,7 +102,7 @@ export function InvoiceRail({ invoices, summary, className, collapsed, onToggle 
                 <span className="shrink-0 text-sm font-medium tabular-nums">{money(i.amount, i.currency ?? "USD")}</span>
               </div>
               <p className="mt-0.5 truncate pl-5 text-xs text-muted-foreground">
-                {[i.invoice_number, shortDate(i.received_at), invoiceState(i)].filter(Boolean).join(" · ")}
+                {[i.invoice_number, shortDate(i.received_at), STATE[i.state].label].filter(Boolean).join(" · ")}
               </p>
             </Link>
           ))

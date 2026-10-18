@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ChatCard, RuleDraft } from "@/lib/api-types";
 import { money } from "@/lib/format";
-import { OutcomeBadge } from "@/components/outcome-badge";
+import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "./status-dot";
 
@@ -58,7 +58,7 @@ function Card({ card }: { card: ChatCard }) {
           <p className="truncate text-sm font-medium">{i.vendor_name ?? "Leyendo factura"}</p>
           <p className="text-xs text-muted-foreground">{i.invoice_number}</p>
         </div>
-        {i.outcome && <OutcomeBadge outcome={i.outcome} />}
+        <StateBadge state={i.state} />
         <span className="shrink-0 text-sm font-medium tabular-nums">{money(i.amount, i.currency ?? "USD")}</span>
       </Link>
     );

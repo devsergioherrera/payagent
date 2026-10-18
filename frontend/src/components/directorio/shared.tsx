@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import type { InvoiceSummary, VendorView } from "@/lib/api-types";
 import { money, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { OutcomeBadge } from "@/components/outcome-badge";
+import { StateBadge } from "@/components/state-badge";
 
 export const TAX_LABEL: Record<VendorView["country"], string> = { CO: "NIT", MX: "RFC", BR: "CNPJ", US: "EIN" };
 export const RAIL_LABEL: Record<VendorView["bank_rail"], string> = { ACH: "ACH", WIRE: "Wire", BRE_B: "Bre-B", SPEI: "SPEI", PIX: "PIX" };
@@ -42,7 +42,7 @@ export function InvoiceLinks({ invoices }: { invoices: InvoiceSummary[] }) {
               <p className="text-xs text-muted-foreground">{shortDate(i.received_at)}</p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-              {i.outcome ? <OutcomeBadge outcome={i.outcome} /> : <span className="text-xs text-muted-foreground">Procesando</span>}
+              <StateBadge state={i.state} />
               <span className="text-sm font-medium tabular-nums sm:w-28 sm:text-right">{money(i.amount, i.currency ?? "USD")}</span>
             </div>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

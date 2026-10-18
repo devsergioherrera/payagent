@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
-import { Bell, BellOff, CircleCheck, Hand, Lightbulb, MailWarning, OctagonX, type LucideIcon } from "lucide-react";
+import { Bell, BellOff, Lightbulb, MailWarning, type LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ActivityItem, ActivityKind } from "@/lib/api-types";
 import { ago } from "@/lib/format";
+import { STATE } from "@/lib/state";
 import { usePolling } from "@/hooks/use-polling";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,9 +15,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 const SEEN_KEY = "payagent:activity-seen";
 
 export const ACTIVITY_KIND: Record<ActivityKind, { icon: LucideIcon; tone: string }> = {
-  ESCALATED: { icon: Hand, tone: "bg-escalate-soft text-escalate" },
-  HELD: { icon: OctagonX, tone: "bg-hold-soft text-hold" },
-  PAID: { icon: CircleCheck, tone: "bg-pay-soft text-pay" },
+  PAID: STATE.PAID,
+  WAITING: STATE.WAITING,
+  HELD: STATE.HELD,
+  APPROVED: STATE.APPROVED,
+  REJECTED: STATE.REJECTED,
   PROPOSAL: { icon: Lightbulb, tone: "bg-brand-soft text-brand" },
   EMAIL_FAILED: { icon: MailWarning, tone: "bg-hold-soft text-hold" },
 };
@@ -57,7 +60,7 @@ export function Notifications() {
   // The badge counts what waits for the user (escalations, rule proposals), not everything that happened.
   const { data: summary } = usePolling(() => api.summary(), 10_000);
   const { data: proposals } = usePolling(() => api.proposals("PENDING"), 10_000);
-  const unread = (summary?.pending_human ?? 0) + (proposals?.length ?? 0);
+  const unread = (summary?.waiting ?? 0) + (proposals?.length ?? 0);
   const onOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {

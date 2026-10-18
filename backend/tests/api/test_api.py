@@ -122,14 +122,35 @@ def test_list_and_detail(client: TestClient, cleanup):
     rows = client.get("/invoices", params={"q": "test-N1"}).json()
     assert [r["id"] for r in rows] == [inv]
     assert rows[0]["headline"] == "test-regla" and rows[0]["decided_by"] == "AGENT"
-    assert client.get("/invoices", params={"q": "test-N1", "status": "PENDING"}).json()[0]["id"] == inv
-    assert client.get("/invoices", params={"q": "test-N1", "outcome": "PAY"}).json() == []
+    assert rows[0]["state"] == "WAITING"
+    assert client.get("/invoices", params={"q": "test-N1", "state": "WAITING"}).json()[0]["id"] == inv
+    assert client.get("/invoices", params={"q": "test-N1", "state": "PAID"}).json() == []
+    assert client.get("/invoices", params={"state": "nope"}).status_code == 422
     detail = client.get(f"/invoices/{inv}").json()
     assert detail["hits"][0]["rule_name"] == "test-regla"
     assert detail["file_url"] == f"/api/invoices/{inv}/file"
     assert [s["label"] for s in detail["timeline"]][0] == "Factura recibida"
     assert client.get(f"/invoices/{uuid.uuid4()}").status_code == 404
     assert client.get("/invoices/not-a-uuid").status_code == 404
+
+
+def _state_of(client: TestClient, inv: str) -> str:
+    return client.get(f"/invoices/{inv}").json()["summary"]["state"]
+
+
+def test_state_per_combination(client: TestClient, cleanup):
+    assert _state_of(client, _decided_invoice(cleanup, "FINAL", "PAY")) == "PAID"
+    assert _state_of(client, _decided_invoice(cleanup, "FINAL", "HOLD")) == "HELD"
+    approved, rejected = _decided_invoice(cleanup), _decided_invoice(cleanup)
+    before = client.get("/summary").json()
+    client.post(f"/invoices/{approved}/resolve", json={"verdict": "APPROVED"})
+    client.post(f"/invoices/{rejected}/resolve", json={"verdict": "REJECTED", "note": "duplicada"})
+    assert _state_of(client, approved) == "APPROVED" and _state_of(client, rejected) == "REJECTED"
+    after = client.get("/summary").json()
+    assert after["paid"] == before["paid"] + 1 and after["rejected"] == before["rejected"] + 1
+    assert after["waiting"] == before["waiting"] - 2
+    kinds = {i["kind"] for i in client.get("/activity?limit=50").json()}
+    assert kinds <= {"PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "PROPOSAL", "EMAIL_FAILED"}
 
 
 def test_resolve_paths(client: TestClient, cleanup):
@@ -160,7 +181,7 @@ def test_invoices_date_filter(client: TestClient, cleanup):
 
 def test_summary_vendors_costs(client: TestClient):
     s = client.get("/summary").json()
-    assert set(s) >= {"paid", "held", "escalated", "pending_human", "processing", "autonomy_pct", "email_connected"}
+    assert set(s) >= {"paid", "waiting", "held", "rejected", "processing", "autonomy_pct", "email_connected"}
     assert client.get("/vendors").json()
     assert "by_type" in client.get("/costs").json()
 

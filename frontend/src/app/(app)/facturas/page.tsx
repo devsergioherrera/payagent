@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Paperclip, Search, Upload, X } from "lucide-react";
 import { api } from "@/lib/api";
+import type { InvoiceState } from "@/lib/api-types";
 import { useKeyedPolling } from "@/components/directorio/use-directory";
 import { DateFilter } from "@/components/facturas/date-filter";
 import { cn } from "@/lib/utils";
@@ -14,19 +15,18 @@ import Outlet from "@/components/facturas/outlet";
 
 const FILTERS = [
   { key: "TODAS", label: "Todas" },
-  { key: "PAY", label: "Pagadas" },
-  { key: "ESCALATE", label: "Escaladas" },
-  { key: "HOLD", label: "Frenadas" },
-  { key: "PENDING", label: "Pendientes" },
-] as const;
+  { key: "PAID", label: "Pagadas" },
+  { key: "WAITING", label: "Esperan tu decisión" },
+  { key: "HELD", label: "Frenadas" },
+  { key: "REJECTED", label: "Rechazadas" },
+] as const satisfies readonly { key: "TODAS" | InvoiceState; label: string }[];
 type FilterKey = (typeof FILTERS)[number]["key"];
 const PAGE_SIZE = 25;
 
 // Filters live in the URL so a view can be shared and the back button restores it.
 function filterFromUrl(sp: URLSearchParams): FilterKey {
-  if (sp.get("status") === "PENDING") return "PENDING";
-  const o = sp.get("outcome");
-  return o === "PAY" || o === "ESCALATE" || o === "HOLD" ? o : "TODAS";
+  const s = sp.get("state");
+  return FILTERS.find((f) => f.key === s)?.key ?? "TODAS";
 }
 
 export default function Page() {
@@ -72,8 +72,7 @@ function Facturas() {
   const { data: page, error, refresh } = useKeyedPolling(
     () =>
       api.invoicesPage({
-        outcome: filter === "PAY" || filter === "ESCALATE" || filter === "HOLD" ? filter : undefined,
-        status: filter === "PENDING" ? "PENDING" : undefined,
+        state: filter === "TODAS" ? undefined : filter,
         q: q || undefined, from: range.from || undefined, to: range.to || undefined,
         limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE,
       }),
@@ -127,7 +126,7 @@ function Facturas() {
             {FILTERS.map((f) => (
               <button
                 key={f.key}
-                onClick={() => setParams({ outcome: f.key === "PAY" || f.key === "ESCALATE" || f.key === "HOLD" ? f.key : null, status: f.key === "PENDING" ? "PENDING" : null })}
+                onClick={() => setParams({ state: f.key === "TODAS" ? null : f.key })}
                 className={cn("h-8 whitespace-nowrap rounded-full px-3.5 text-[13px] text-muted-foreground transition-colors active:scale-[0.98]", filter === f.key && "bg-card font-medium text-foreground shadow-xs")}
               >
                 {f.label}

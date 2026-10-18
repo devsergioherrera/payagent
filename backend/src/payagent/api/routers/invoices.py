@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 
 from payagent.adapters.postgres.queries import ApiQueries, NotFound, NotPending
 from payagent.api.deps import get_invoices, get_notifier, get_pipeline, get_queries, get_storage
-from payagent.api.schemas import Created, InvoiceDetail, InvoiceSummary, ResolveRequest
+from payagent.api.schemas import Created, InvoiceDetail, InvoiceState, InvoiceSummary, ResolveRequest
 from payagent.adapters.postgres.notifications import PostgresNotifications
 from payagent.app.process_invoice import process_invoice
 from payagent.config import settings
@@ -19,14 +19,14 @@ router = APIRouter(prefix="/invoices")
 @router.get("")
 def list_invoices(
     response: Response,
-    outcome: str | None = None, status: str | None = None, q: str | None = None, vendor_id: str | None = None,
+    state: InvoiceState | None = None, q: str | None = None, vendor_id: str | None = None,
     date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
     limit: int = Query(200, ge=1, le=500), offset: int = Query(0, ge=0),
     queries: ApiQueries = Depends(get_queries),
 ) -> list[InvoiceSummary]:
-    outcome, status, vendor_id = outcome or None, status or None, vendor_id or None
-    response.headers["X-Total-Count"] = str(queries.count_invoices(outcome, status, q, vendor_id, date_from, date_to))
-    return queries.list_invoices(outcome, status, q, limit, offset, vendor_id, date_from, date_to)
+    vendor_id = vendor_id or None
+    response.headers["X-Total-Count"] = str(queries.count_invoices(state, q, vendor_id, date_from, date_to))
+    return queries.list_invoices(state, q, limit, offset, vendor_id, date_from, date_to)
 
 
 @router.post("")

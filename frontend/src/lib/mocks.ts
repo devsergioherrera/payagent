@@ -6,25 +6,26 @@ import type {
 } from "./api-types";
 
 export const summary: Summary = {
-  paid: 6, held: 2, escalated: 3, pending_human: 2, processing: 1,
+  paid: 7, waiting: 2, held: 2, rejected: 1, processing: 1,
   autonomy_pct: 54.5, email_connected: true, email_checked_at: "2026-10-17T21:40:08Z",
 };
 
 const inv = (p: Partial<InvoiceSummary> & Pick<InvoiceSummary, "id">): InvoiceSummary => ({
-  status: "DECIDED", vendor_name: null, invoice_number: null, amount: null, currency: "USD",
+  status: "DECIDED", state: "PAID", vendor_name: null, invoice_number: null, amount: null, currency: "USD",
   amount_usd: null, received_at: "2026-10-17T14:12:00Z", source: "EMAIL", outcome: "PAY",
   decision_status: "FINAL", headline: null, decided_by: "AGENT", ...p,
 });
 
 export const invoices: InvoiceSummary[] = [
-  inv({ id: "i-2045", status: "EVALUATING", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2045", amount: 5920000, currency: "COP", amount_usd: 1480, outcome: null, decision_status: null, decided_by: null }),
-  inv({ id: "i-2044", vendor_name: "Northwind Software Inc.", invoice_number: "NW-8812", amount: 1950, amount_usd: 1950, outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Sin orden de compra" }),
-  inv({ id: "i-2043", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2043", amount: 12400, amount_usd: 12400, outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Umbral de aprobación humana" }),
+  inv({ id: "i-2045", status: "EVALUATING", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2045", amount: 5920000, currency: "COP", amount_usd: 1480, state: "PROCESSING", outcome: null, decision_status: null, decided_by: null }),
+  inv({ id: "i-2044", vendor_name: "Northwind Software Inc.", invoice_number: "NW-8812", amount: 1950, amount_usd: 1950, state: "WAITING", outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Sin orden de compra" }),
+  inv({ id: "i-2043", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2043", amount: 12400, amount_usd: 12400, state: "WAITING", outcome: "ESCALATE", decision_status: "PENDING_HUMAN", headline: "Umbral de aprobación humana" }),
   inv({ id: "i-2042", vendor_name: "Logística del Bajío S.A. de C.V.", invoice_number: "A-3391", amount: 58000, currency: "MXN", amount_usd: 3190, source: "UPLOAD" }),
   inv({ id: "i-2041", vendor_name: "Tecnologia Paulista Ltda.", invoice_number: "NF-7781", amount: 15000, currency: "BRL", amount_usd: 2700 }),
-  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "FINAL", headline: "Presupuesto del mes" }),
-  inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, outcome: "HOLD", decision_status: "FINAL", headline: "Proveedor bloqueado" }),
-  inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT", outcome: "ESCALATE", decision_status: "RESOLVED", decided_by: "HUMAN", headline: "Sin orden de compra válida" }),
+  inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, state: "HELD", outcome: "HOLD", decision_status: "FINAL", headline: "Presupuesto del mes" }),
+  inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, state: "HELD", outcome: "HOLD", decision_status: "FINAL", headline: "Proveedor bloqueado" }),
+  inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT", state: "APPROVED", outcome: "ESCALATE", decision_status: "RESOLVED", decided_by: "HUMAN", headline: "Sin orden de compra válida" }),
+  inv({ id: "i-2037", vendor_name: "Northwind Software Inc.", invoice_number: "NW-8790", amount: 2100, amount_usd: 2100, state: "REJECTED", outcome: "ESCALATE", decision_status: "RESOLVED", decided_by: "HUMAN", headline: "Monto distinto de la orden", received_at: "2026-10-16T10:00:00Z" }),
 ];
 
 type HitRow = [string, string, Hit["effect"], Hit["result"], Hit["observed"], Hit["threshold"]];
@@ -374,10 +375,9 @@ export function purchaseOrderPage(f: {
 }
 
 export function invoicesFor(f: {
-  outcome?: string; status?: string; q?: string; from?: string; to?: string; vendor_id?: string; limit?: number; offset?: number;
+  state?: string; q?: string; from?: string; to?: string; vendor_id?: string; limit?: number; offset?: number;
 }) {
-  let all = invoices.filter((i) => !f.outcome || i.outcome === f.outcome);
-  if (f.status === "PENDING") all = all.filter((i) => i.decision_status === "PENDING_HUMAN");
+  let all = invoices.filter((i) => !f.state || i.state === f.state);
   if (f.q) all = all.filter((i) => `${i.vendor_name} ${i.invoice_number} ${i.amount}`.toLowerCase().includes(f.q!.toLowerCase()));
   if (f.from) all = all.filter((i) => i.received_at.slice(0, 10) >= f.from!);
   if (f.to) all = all.filter((i) => i.received_at.slice(0, 10) <= f.to!);
@@ -411,7 +411,7 @@ export const costs: Costs = {
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 export const activity = (): ActivityItem[] => [
-  { id: "d1", kind: "ESCALATED", title: "Espera tu decisión: Northwind Software", detail: "4,200.00 USD", invoice_id: "i-2043", at: minutesAgo(2) },
+  { id: "d1", kind: "WAITING", title: "Espera tu decisión: Northwind Software", detail: "4,200.00 USD", invoice_id: "i-2043", at: minutesAgo(2) },
   { id: "p1", kind: "PROPOSAL", title: "Regla propuesta", detail: "Northwind sin orden de compra", proposal_id: "p1", at: minutesAgo(18) },
   { id: "d2", kind: "HELD", title: "Frenada: Servicios Cloud Andinos", detail: "12,900.00 USD", invoice_id: "i-2041", at: minutesAgo(55) },
   { id: "n1", kind: "EMAIL_FAILED", title: "No se pudo enviar un correo", detail: "A compras@andinos.example", invoice_id: "i-2041", at: minutesAgo(56) },

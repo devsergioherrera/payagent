@@ -50,7 +50,7 @@ class FakeMeter:
 
 
 def summary(n="F-1"):
-    return InvoiceSummary(id="i-" + n, status="DECIDED", vendor_name="Servicios Cloud", invoice_number=n,
+    return InvoiceSummary(id="i-" + n, status="DECIDED", state="WAITING", vendor_name="Servicios Cloud", invoice_number=n,
                           amount=10.0, currency="USD", amount_usd=10.0, received_at="2026-01-01T00:00:00Z",
                           source="UPLOAD", outcome="ESCALATE", decision_status="PENDING_HUMAN", headline=None,
                           decided_by="AGENT")

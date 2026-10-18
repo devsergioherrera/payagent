@@ -1,6 +1,6 @@
 // The only way screens talk to the backend. With NEXT_PUBLIC_USE_MOCKS=1 every call returns lib/mocks.ts data.
 import type {
-  ActivityItem, BudgetUpdate, ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, Outcome, ProposalRun,
+  ActivityItem, BudgetUpdate, ChatReply, Costs, Created, DraftResponse, InvoiceDetail, InvoiceSummary, InvoiceState, ProposalRun,
   Page, ProposalView, PurchaseOrderDetail, Policy, PurchaseOrderRow, ResolveRequest, RuleDraft, RuleSourceView, RuleView, Summary, VendorView,
 } from "./api-types";
 import * as mocks from "./mocks";
@@ -39,7 +39,7 @@ const json = (body: unknown): RequestInit => ({
 const mock = <T,>(value: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(value)), 150));
 
 export interface InvoiceFilters {
-  outcome?: Outcome; status?: string; q?: string; vendor_id?: string; from?: string; to?: string;
+  state?: InvoiceState; q?: string; vendor_id?: string; from?: string; to?: string;
   limit?: number; offset?: number;
 }
 export interface VendorFilters { q?: string; status?: string; country?: string; limit?: number; offset?: number }

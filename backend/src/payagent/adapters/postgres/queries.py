@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from payagent.adapters.postgres.db import get_pool
+from payagent.adapters.postgres.invoice_state import INVOICE_STATE_SQL
 from payagent.api.schemas import (
     ActivityItem,
     Approval,
@@ -66,7 +67,7 @@ class ApiQueries:
     # ---- invoices -------------------------------------------------------------------------------------------
 
     _SUMMARY_COLS = """
-        i.id::text as id, i.status, coalesce(v.name, i.vendor_name_raw) as vendor_name, i.invoice_number,
+        i.id::text as id, i.status, {state} as state, coalesce(v.name, i.vendor_name_raw) as vendor_name, i.invoice_number,
                i.amount, i.currency, i.amount_usd, i.received_at, i.source,
                d.outcome, d.status as decision_status,
                coalesce(
@@ -78,6 +79,7 @@ class ApiQueries:
                    order by r.proposed_at, h.rule_name limit 1)
                ) as headline,
                case when a.id is not null then 'HUMAN' when d.id is not null then 'AGENT' end as decided_by"""
+    _SUMMARY_COLS = _SUMMARY_COLS.replace("{state}", INVOICE_STATE_SQL)
     _SUMMARY_FROM = """
         from invoice i
         left join vendor v on v.id = i.vendor_id
@@ -89,7 +91,7 @@ class ApiQueries:
     @staticmethod
     def _summary(r: dict) -> InvoiceSummary:
         return InvoiceSummary(
-            id=r["id"], status=r["status"], vendor_name=r["vendor_name"], invoice_number=r["invoice_number"],
+            id=r["id"], status=r["status"], state=r["state"], vendor_name=r["vendor_name"], invoice_number=r["invoice_number"],
             amount=_f(r["amount"]), currency=r["currency"], amount_usd=_f(r["amount_usd"]),
             received_at=r["received_at"], source=r["source"], outcome=r["outcome"],
             decision_status=r["decision_status"], headline=r["headline"], decided_by=r["decided_by"],
@@ -97,7 +99,7 @@ class ApiQueries:
 
     @staticmethod
     def _invoice_filters(
-        outcome: str | None, status: str | None, q: str | None, vendor_id: str | None = None,
+        state: str | None, q: str | None, vendor_id: str | None = None,
         date_from: date | None = None, date_to: date | None = None,
     ) -> tuple[str, list]:
         where, params = [], []
@@ -107,15 +109,9 @@ class ApiQueries:
         if date_to:  # inclusive: the whole `to` day
             where.append("i.received_at < (%s::date + 1)")
             params.append(date_to)
-        if outcome:
-            where.append("d.outcome = %s")
-            params.append(outcome)
-        if status:
-            if status == "PENDING":
-                status = "PENDING_HUMAN"
-            column = "d.status" if status in ("FINAL", "PENDING_HUMAN", "RESOLVED") else "i.status"
-            where.append(f"{column} = %s")
-            params.append(status)
+        if state:
+            where.append(f"{INVOICE_STATE_SQL} = %s")
+            params.append(state)
         if q and q.strip():
             like = f"%{q.strip()}%"
             where.append(
@@ -128,20 +124,20 @@ class ApiQueries:
         return (" where " + " and ".join(where) if where else ""), params
 
     def list_invoices(
-        self, outcome: str | None = None, status: str | None = None, q: str | None = None, limit: int = 300,
+        self, state: str | None = None, q: str | None = None, limit: int = 300,
         offset: int = 0, vendor_id: str | None = None,
         date_from: date | None = None, date_to: date | None = None,
     ) -> list[InvoiceSummary]:
-        clause, params = self._invoice_filters(outcome, status, q, vendor_id, date_from, date_to)
+        clause, params = self._invoice_filters(state, q, vendor_id, date_from, date_to)
         query = self._SUMMARY_SELECT + clause + " order by i.received_at desc, i.id limit %s offset %s"
         with self._pool.connection() as conn:
             return [self._summary(r) for r in _rows(conn, query, (*params, limit, offset))]
 
     def count_invoices(
-        self, outcome: str | None = None, status: str | None = None, q: str | None = None,
+        self, state: str | None = None, q: str | None = None,
         vendor_id: str | None = None, date_from: date | None = None, date_to: date | None = None,
     ) -> int:
-        clause, params = self._invoice_filters(outcome, status, q, vendor_id, date_from, date_to)
+        clause, params = self._invoice_filters(state, q, vendor_id, date_from, date_to)
         with self._pool.connection() as conn:
             return conn.execute("select count(*)" + self._SUMMARY_FROM + clause, params).fetchone()[0]
 
@@ -165,7 +161,7 @@ class ApiQueries:
         return [self._summary(r) for r in rows]
 
     def pending_invoices(self, limit: int = 10) -> list[InvoiceSummary]:
-        return self.list_invoices(status="PENDING_HUMAN", limit=limit)
+        return self.list_invoices(state="WAITING", limit=limit)
 
     def invoice_summary(self, invoice_id: str) -> InvoiceSummary:
         with self._pool.connection() as conn:
@@ -375,18 +371,18 @@ class ApiQueries:
         with self._pool.connection() as conn:
             r = _row(
                 conn,
-                """select
-                     count(*) filter (where d.outcome = 'PAY') as paid,
-                     count(*) filter (where d.outcome = 'HOLD') as held,
-                     count(*) filter (where d.outcome = 'ESCALATE') as escalated,
-                     count(*) filter (where d.outcome = 'ESCALATE' and d.status = 'PENDING_HUMAN') as pending_human,
-                     count(*) filter (where d.status = 'FINAL' and a.id is null) as autonomous,
-                     count(d.id) as decided
-                   from decision d left join approval a on a.decision_id = d.id""",
+                f"""select
+                     count(*) filter (where s.state in ('PAID', 'APPROVED')) as paid,
+                     count(*) filter (where s.state = 'WAITING') as waiting,
+                     count(*) filter (where s.state = 'HELD') as held,
+                     count(*) filter (where s.state = 'REJECTED') as rejected,
+                     count(*) filter (where s.state = 'PROCESSING') as processing,
+                     count(*) filter (where s.state in ('PAID', 'HELD')) as autonomous,
+                     count(*) filter (where s.state not in ('PROCESSING', 'FAILED')) as decided
+                   from (select {INVOICE_STATE_SQL} as state
+                         from invoice i left join decision d on d.invoice_id = i.id
+                         left join approval a on a.decision_id = d.id) s""",
             )
-            processing = conn.execute(
-                "select count(*) from invoice where status in ('RECEIVED', 'EXTRACTING', 'EVALUATING')"
-            ).fetchone()[0]
             checked_at = None
             if conn.execute("select to_regclass('public.worker_heartbeat')").fetchone()[0]:
                 checked_at = conn.execute(
@@ -395,8 +391,8 @@ class ApiQueries:
                 checked_at = checked_at[0] if checked_at else None
         connected = checked_at is not None and datetime.now(timezone.utc) - checked_at < timedelta(seconds=stale_after_s)
         return Summary(
-            paid=r["paid"], held=r["held"], escalated=r["escalated"], pending_human=r["pending_human"],
-            processing=processing,
+            paid=r["paid"], waiting=r["waiting"], held=r["held"], rejected=r["rejected"],
+            processing=r["processing"],
             autonomy_pct=round(100 * r["autonomous"] / r["decided"], 1) if r["decided"] else 0.0,
             email_connected=connected, email_checked_at=checked_at,
         )
@@ -565,12 +561,13 @@ class ApiQueries:
 
     def activity(self, limit: int) -> list[ActivityItem]:
         with self._pool.connection() as conn:
-            rows = _rows(conn, """
+            rows = _rows(conn, f"""
                 select * from (
-                  select 'd' || d.id::text as id, case d.outcome when 'PAY' then 'PAID' when 'HOLD' then 'HELD' else 'ESCALATED' end as kind,
+                  select 'd' || d.id::text as id, {INVOICE_STATE_SQL} as kind,
                          coalesce(v.name, i.vendor_name_raw) as who, i.amount, i.currency, i.invoice_number as extra,
-                         i.id::text as invoice_id, null::text as proposal_id, d.decided_at as at
+                         i.id::text as invoice_id, null::text as proposal_id, coalesce(a.created_at, d.decided_at) as at
                     from decision d join invoice i on i.id = d.invoice_id left join vendor v on v.id = i.vendor_id
+                    left join approval a on a.decision_id = d.id where i.status <> 'FAILED'
                   union all
                   select 'p' || p.id::text, 'PROPOSAL', p.name, null, null, p.rationale, null, p.id::text, p.created_at
                     from rule_proposal p where p.status = 'PENDING'
@@ -588,7 +585,9 @@ class ApiQueries:
         title, detail = {
             "PAID": (f"Pagada: {who}", amount),
             "HELD": (f"Frenada: {who}", amount),
-            "ESCALATED": (f"Espera tu decisión: {who}", amount),
+            "WAITING": (f"Espera tu decisión: {who}", amount),
+            "APPROVED": (f"Aprobada por ti: {who}", amount),
+            "REJECTED": (f"Rechazada por ti: {who}", amount),
             "PROPOSAL": ("Regla propuesta", f"{who}"),
             "EMAIL_FAILED": ("No se pudo enviar un correo", f"A {who}"),
         }[r["kind"]]
