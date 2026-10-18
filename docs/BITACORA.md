@@ -1,6 +1,6 @@
 # Bitácora del orquestador
 
-Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va arriba. Leer junto con `CLAUDE.md`, `docs/ROADMAP.md` y `docs/UX-AUDIT.md`.
+Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va arriba. Leer junto con `CLAUDE.md` y `docs/ROADMAP.md`.
 
 ## Cómo retomar
 - Integración: worktree `.claude/worktrees/develop` (rama `develop`). Producción: `main`, con CD a https://52.207.93.205.sslip.io (contraseña `ADMIN_PASSWORD` del `.env`).
@@ -37,7 +37,7 @@ Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va
 - 21:55 W7 integrado y verificado con datos reales: la Mesa dice "Aprobada por ti" y los chips cuentan por estado.
 - 21:45 Bitácora creada. W7 relanzado tras una interrupción.
 - 21:40 Fechas sin hora se mostraban un día antes (zona horaria): arreglado en `format.ts`.
-- 21:30 Auditoría UX (`docs/UX-AUDIT.md`); W5 y W6 integrados.
+- 21:30 Auditoría UX (informe retirado, hallazgos aplicados); W5 y W6 integrados.
 - 21:10 Reglas `test-*` borradas de la base; los tests ahora limpian lo que crean.
 - 20:55 Deploy con migraciones automáticas (`deploy/deploy.sh` + `backend/scripts/migrate.py`).
 - 20:40 README, `setup-db.sh` (probado en Postgres vacío) y `reset-demo.sh`.

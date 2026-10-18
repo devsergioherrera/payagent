@@ -1,6 +1,6 @@
 # payagent
 
-Payments agent for the Blinka challenge. Spec: [docs/SPEC.md](docs/SPEC.md). Layout and deployment details: [docs/STRUCTURE.md](docs/STRUCTURE.md).
+Payments agent for the Blinka challenge. Spec: [docs/SPEC.md](docs/SPEC.md). Layout and deployment: the README and `deploy/`.
 
 ## Resuming work
 

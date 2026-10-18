@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 780" width="1280" height="780" role="img" aria-label="Three loops: forward, human in the loop, reinforcement">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#A3A3B2"/></marker>
+    <marker id="ai" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8B75FF"/></marker>
+    <pattern id="g" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".04"/></pattern>
+    <clipPath id="r"><rect width="1280" height="780" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <rect width="1280" height="780" fill="#0B0B0F"/><rect width="1280" height="780" fill="url(#g)"/>
+    <rect x="1" y="1" width="1278" height="778" rx="27" fill="none" stroke="#fff" stroke-opacity=".08"/>
+
+    <!-- lane labels -->
+    <g font-size="13" font-weight="700" letter-spacing="1.6">
+      <rect x="40" y="36" width="186" height="30" rx="15" fill="#1F1A3D"/><text x="58" y="56" fill="#B9ABFF">1 · FORWARD LOOP</text>
+      <rect x="40" y="316" width="232" height="30" rx="15" fill="#1F1A3D"/><text x="58" y="336" fill="#B9ABFF">2 · HUMAN IN THE LOOP</text>
+      <rect x="40" y="556" width="244" height="30" rx="15" fill="#1F1A3D"/><text x="58" y="576" fill="#B9ABFF">3 · REINFORCEMENT LOOP</text>
+    </g>
+    <path d="M40 300H1240M40 540H1240" stroke="#2A2A33" stroke-dasharray="4 8"/>
+
+    <!-- LANE 1 -->
+    <g>
+      <rect x="40" y="110" width="200" height="100" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <text x="62" y="148" font-size="20" font-weight="700" fill="#F3F3F6">Invoice in</text>
+      <text x="62" y="174" font-size="14" fill="#A3A3B2">Email · Upload · Chat</text>
+      <text x="62" y="194" font-size="14" fill="#A3A3B2">PDF, image or text</text>
+
+      <rect x="300" y="110" width="200" height="100" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <text x="322" y="148" font-size="20" font-weight="700" fill="#F3F3F6">Gemini reads</text>
+      <text x="322" y="174" font-size="14" fill="#A3A3B2">Vendor, tax ID, amount,</text>
+      <text x="322" y="194" font-size="14" fill="#A3A3B2">dates, PO, bank account</text>
+
+      <rect x="560" y="100" width="240" height="120" rx="20" fill="#5B3DF5"/>
+      <text x="584" y="144" font-size="22" font-weight="800" fill="#fff">Rules engine</text>
+      <text x="584" y="172" font-size="14" fill="#E6E0FF">Plain code. No AI.</text>
+      <text x="584" y="192" font-size="14" fill="#E6E0FF">Missing data never pays.</text>
+
+      <rect x="880" y="70" width="230" height="60" rx="16" fill="#14141A" stroke="#3DBE7D" stroke-width="1.5"/>
+      <circle cx="910" cy="100" r="9" fill="#3DBE7D"/><text x="932" y="99" font-size="19" font-weight="700" fill="#3DBE7D">PAY</text>
+      <text x="932" y="118" font-size="13" fill="#A3A3B2">rules passed</text>
+      <rect x="880" y="150" width="230" height="60" rx="16" fill="#14141A" stroke="#E8A93B" stroke-width="1.5"/>
+      <circle cx="910" cy="180" r="9" fill="#E8A93B"/><text x="932" y="179" font-size="19" font-weight="700" fill="#E8A93B">ESCALATE</text>
+      <text x="932" y="198" font-size="13" fill="#A3A3B2">needs you</text>
+      <rect x="880" y="230" width="230" height="60" rx="16" fill="#14141A" stroke="#E5584F" stroke-width="1.5"/>
+      <circle cx="910" cy="260" r="9" fill="#E5584F"/><text x="932" y="259" font-size="19" font-weight="700" fill="#E5584F">HOLD</text>
+      <text x="932" y="278" font-size="13" fill="#A3A3B2">final, no override</text>
+      <text x="1130" y="86" font-size="13" fill="#A3A3B2">Gemini writes the</text>
+      <text x="1130" y="104" font-size="13" fill="#A3A3B2">explanation from</text>
+      <text x="1130" y="122" font-size="13" fill="#A3A3B2">the rules that fired</text>
+    </g>
+    <g stroke="#A3A3B2" stroke-width="2" fill="none" marker-end="url(#a)">
+      <path d="M240 160H296"/><path d="M500 160H556"/>
+      <path d="M800 140L876 100"/><path d="M800 160H876"/><path d="M800 180L876 258"/>
+    </g>
+
+    <!-- LANE 2 -->
+    <g>
+      <rect x="860" y="380" width="250" height="110" rx="18" fill="#14141A" stroke="#E8A93B" stroke-width="1.5"/>
+      <text x="884" y="418" font-size="20" font-weight="700" fill="#F3F3F6">You decide</text>
+      <text x="884" y="444" font-size="14" fill="#A3A3B2">Approve, or Reject</text>
+      <text x="884" y="464" font-size="14" fill="#A3A3B2">(a reason is required)</text>
+
+      <rect x="290" y="380" width="250" height="110" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <text x="314" y="418" font-size="20" font-weight="700" fill="#F3F3F6">Decision recorded</text>
+      <text x="314" y="444" font-size="14" fill="#A3A3B2">Paid or rejected, with the</text>
+      <text x="314" y="464" font-size="14" fill="#A3A3B2">full trace of every rule</text>
+    </g>
+    <path d="M1110 180H1190V435H1114" stroke="#E8A93B" stroke-width="2" fill="none" stroke-linejoin="round" marker-end="url(#a)"/>
+    <path d="M856 435H544" stroke="#A3A3B2" stroke-width="2" fill="none" marker-end="url(#a)"/>
+
+    <!-- LANE 3 -->
+    <g>
+      <rect x="290" y="620" width="250" height="110" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <text x="314" y="658" font-size="20" font-weight="700" fill="#F3F3F6">Agent spots patterns</text>
+      <text x="314" y="684" font-size="14" fill="#A3A3B2">Reads your last 20</text>
+      <text x="314" y="704" font-size="14" fill="#A3A3B2">resolutions, proposes rules</text>
+
+      <rect x="600" y="620" width="250" height="110" rx="18" fill="#14141A" stroke="#8B75FF" stroke-width="1.5"/>
+      <text x="624" y="658" font-size="20" font-weight="700" fill="#F3F3F6">You accept</text>
+      <text x="624" y="684" font-size="14" fill="#A3A3B2">Evidence attached. The new</text>
+      <text x="624" y="704" font-size="14" fill="#A3A3B2">rule is saved, origin: Agent</text>
+    </g>
+    <path d="M415 494V616" stroke="#A3A3B2" stroke-width="2" fill="none" marker-end="url(#a)"/>
+    <path d="M540 675H596" stroke="#A3A3B2" stroke-width="2" fill="none" marker-end="url(#a)"/>
+    <path d="M720 616V224" stroke="#8B75FF" stroke-width="2.5" stroke-dasharray="7 6" fill="none" marker-end="url(#ai)"/>
+    <text x="736" y="565" font-size="14" font-weight="600" fill="#B9ABFF">Next invoice is judged</text>
+    <text x="736" y="585" font-size="14" font-weight="600" fill="#B9ABFF">by the new rule</text>
+  </g>
+</svg>

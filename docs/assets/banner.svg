@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" width="1280" height="420" role="img" aria-label="FacturaYa payments agent: Pay, Hold or Escalate">
+  <defs>
+    <radialGradient id="glow" cx="78%" cy="30%" r="60%">
+      <stop offset="0" stop-color="#5B3DF5" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#5B3DF5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="8%" cy="100%" r="45%">
+      <stop offset="0" stop-color="#8B75FF" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#8B75FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="word" x1="0" x2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#B9ABFF"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity=".045"/>
+    </pattern>
+    <clipPath id="r"><rect width="1280" height="420" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <rect width="1280" height="420" fill="#0B0B0F"/>
+    <rect width="1280" height="420" fill="url(#grid)"/>
+    <rect width="1280" height="420" fill="url(#glow)"/>
+    <rect width="1280" height="420" fill="url(#glow2)"/>
+
+    <!-- brand mark -->
+    <rect x="72" y="72" width="52" height="52" rx="14" fill="#5B3DF5"/>
+    <path d="M88 84h24M88 98h24M88 112h13" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <text x="140" y="106" font-size="26" font-weight="700" fill="#F3F3F6" letter-spacing="-.3">FacturaYa</text>
+
+    <text x="72" y="212" font-size="68" font-weight="800" fill="url(#word)" letter-spacing="-2.5">The payments agent</text>
+    <text x="72" y="282" font-size="68" font-weight="800" fill="#8B75FF" letter-spacing="-2.5">that shows its work.</text>
+    <text x="72" y="332" font-size="23" fill="#A3A3B2">Reads any invoice. Applies your rules, written in plain language.</text>
+    <text x="72" y="364" font-size="23" fill="#A3A3B2">Pays, holds or escalates, and explains every decision.</text>
+
+    <!-- outcome cards -->
+    <g transform="translate(880 92)">
+      <rect width="328" height="72" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <circle cx="40" cy="36" r="14" fill="#3DBE7D"/>
+      <path d="M33 36l5 5 9-10" stroke="#0B0B0F" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="72" y="32" font-size="22" font-weight="700" fill="#F3F3F6">Pay</text>
+      <text x="72" y="54" font-size="15" fill="#A3A3B2">Every rule passed</text>
+    </g>
+    <g transform="translate(880 182)">
+      <rect width="328" height="72" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <circle cx="40" cy="36" r="14" fill="#E8A93B"/>
+      <path d="M40 28v10" stroke="#0B0B0F" stroke-width="3.5" stroke-linecap="round"/><circle cx="40" cy="44" r="2.2" fill="#0B0B0F"/>
+      <text x="72" y="32" font-size="22" font-weight="700" fill="#F3F3F6">Escalate</text>
+      <text x="72" y="54" font-size="15" fill="#A3A3B2">Waits for your approval</text>
+    </g>
+    <g transform="translate(880 272)">
+      <rect width="328" height="72" rx="18" fill="#14141A" stroke="#2A2A33"/>
+      <circle cx="40" cy="36" r="14" fill="#E5584F"/>
+      <path d="M34 30l12 12M46 30L34 42" stroke="#0B0B0F" stroke-width="3.5" stroke-linecap="round"/>
+      <text x="72" y="32" font-size="22" font-weight="700" fill="#F3F3F6">Hold</text>
+      <text x="72" y="54" font-size="15" fill="#A3A3B2">Final. Nobody overrides it</text>
+    </g>
+    <rect x="1" y="1" width="1278" height="418" rx="27" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+  </g>
+</svg>

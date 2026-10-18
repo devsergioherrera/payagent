@@ -1,4 +1,4 @@
--- FacturaYa payments agent. Postgres (Supabase). See docs/db-schema.html and docs/ROADMAP.md.
+-- FacturaYa payments agent. Postgres (Supabase). See docs/ROADMAP.md.
 begin;
 
 -- Master data -----------------------------------------------------------------
