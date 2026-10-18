@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const SEEN_KEY = "payagent:activity-seen";
 
-const KIND: Record<ActivityKind, { icon: LucideIcon; tone: string }> = {
+export const ACTIVITY_KIND: Record<ActivityKind, { icon: LucideIcon; tone: string }> = {
   ESCALATED: { icon: Hand, tone: "bg-escalate-soft text-escalate" },
   HELD: { icon: OctagonX, tone: "bg-hold-soft text-hold" },
   PAID: { icon: CircleCheck, tone: "bg-pay-soft text-pay" },
@@ -54,7 +54,10 @@ export function Notifications() {
   const [shownSince, setShownSince] = useState(seen);
   const [now] = useState(() => Date.now());
 
-  const unread = data ? data.filter((a) => a.at > seen).length : 0;
+  // The badge counts what waits for the user (escalations, rule proposals), not everything that happened.
+  const { data: summary } = usePolling(() => api.summary(), 10_000);
+  const { data: proposals } = usePolling(() => api.proposals("PENDING"), 10_000);
+  const unread = (summary?.pending_human ?? 0) + (proposals?.length ?? 0);
   const onOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
@@ -66,7 +69,7 @@ export function Notifications() {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
-        aria-label={unread ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
+        aria-label={unread ? `Notificaciones, ${unread} por atender` : "Notificaciones"}
         className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground outline-none transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98] aria-expanded:bg-secondary aria-expanded:text-foreground"
       >
         <Bell className="size-[18px]" />
@@ -98,7 +101,7 @@ export function Notifications() {
             </div>
           ) : (
             data.map((a) => {
-              const { icon: Icon, tone } = KIND[a.kind];
+              const { icon: Icon, tone } = ACTIVITY_KIND[a.kind];
               const isNew = a.at > shownSince;
               return (
                 <Link

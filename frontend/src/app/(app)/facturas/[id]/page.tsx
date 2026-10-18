@@ -3,15 +3,15 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronLeft, FileText, ScanText } from "lucide-react";
+import { ChevronLeft, ScanText } from "lucide-react";
 import { api } from "@/lib/api";
 import { usePolling } from "@/hooks/use-polling";
 import { Skeleton } from "@/components/ui/skeleton";
-import { costUsd, dayTime, duration, isProcessing as isProcessingStatus, money, shortDate } from "@/lib/format";
+import { costUsd, duration, isProcessing as isProcessingStatus, money, shortDate } from "@/lib/format";
 import { Section } from "@/components/facturas/section";
 import { Verdict } from "@/components/facturas/verdict";
 import { CreateRuleButton, HoldCallout } from "@/components/facturas/rule-callout";
-import { DocumentView, OpenLink } from "@/components/facturas/document";
+import { DocumentCard } from "@/components/facturas/document";
 import { Rules } from "@/components/facturas/rules";
 import { Decision } from "@/components/facturas/decision";
 
@@ -45,7 +45,7 @@ export default function Page() {
   if (error) return <p className="rounded-2xl border bg-card p-5 text-sm text-destructive">No se pudo cargar la factura.</p>;
   if (!invoice) return <LoadingState />;
 
-  const { summary, extracted, hits, cost, file_url, approval } = invoice;
+  const { summary, extracted, hits, cost, file_url } = invoice;
   const pendingHuman = summary.outcome === "ESCALATE" && summary.decision_status === "PENDING_HUMAN";
   const processing = isProcessingStatus(summary.status);
 
@@ -67,9 +67,7 @@ export default function Page() {
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         <div className="space-y-4 lg:col-span-5">
-          <Section title="Documento original" icon={FileText} aside={file_url ? <OpenLink url={file_url} /> : undefined} bodyClassName="p-3">
-            <div className="h-[190px]">{file_url && <DocumentView url={file_url} />}</div>
-          </Section>
+          {file_url && <DocumentCard url={file_url} />}
 
           <Section title="Datos extraídos" icon={ScanText} >
             <dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3">
@@ -91,12 +89,6 @@ export default function Page() {
 
         <div className="space-y-4 lg:col-span-7">
           {pendingHuman && <Decision id={id} onDone={refresh} />}
-          {!pendingHuman && approval && (
-            <p className="rounded-2xl border bg-card px-4 py-3 text-[13px] text-muted-foreground">
-              {approval.verdict === "APPROVED" ? "Aprobada" : "Rechazada"} por {approval.approver} · {dayTime(approval.created_at)}
-              {approval.note && ` · «${approval.note}»`}
-            </p>
-          )}
           {!processing && hits.length > 0 && <Rules hits={hits} />}
         </div>
       </div>

@@ -4,16 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import { Mascot, type MascotState } from "@/components/mascot/mascot";
 import { api } from "@/lib/api";
 import type { InvoiceSummary, Summary } from "@/lib/api-types";
-import { greeting, isProcessing, OUTCOME_STYLE } from "@/lib/format";
+import { usePolling } from "@/hooks/use-polling";
+import { ago, greeting, isProcessing, OUTCOME_STYLE } from "@/lib/format";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { ACTIVITY_KIND } from "@/components/shell/notifications";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Composer } from "./composer";
 import { Conversation, type Message } from "./conversation";
 import { LatestCard } from "./latest-card";
 
+// A zero is not news: it stays neutral instead of borrowing the decision color.
 function Chip({ label, value, className }: { label: string; value: number; className: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px]", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px]", value === 0 ? "bg-secondary text-muted-foreground" : className)}>
       <span className="font-semibold tabular-nums">{value}</span> {label}
     </span>
   );
@@ -43,8 +48,10 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
   if (!summary) {
     return (
       <div className="space-y-5">
-        <Skeleton className="size-28 rounded-[32%]" />
-        <div className="space-y-2"><Skeleton className="h-8 w-64" /><Skeleton className="h-4 w-80 max-w-full" /></div>
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-20 shrink-0 rounded-[32%]" />
+          <div className="space-y-2"><Skeleton className="h-8 w-64 max-w-full" /><Skeleton className="h-4 w-56 max-w-full" /></div>
+        </div>
         <Skeleton className="h-7 w-96 max-w-full rounded-full" />
         <Skeleton className="h-28 rounded-2xl" />
       </div>
@@ -53,12 +60,14 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
   const n = summary.pending_human;
   return (
     <div className="space-y-6">
-      <Mascot state={mascot} size={112} className="-ml-1" />
-      <div className="space-y-1.5">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{greeting()}, Sergio.</h1>
-        <p className="text-sm text-muted-foreground">
-          {n === 0 ? "No tienes facturas esperando tu decisión." : `Tienes ${n} ${n === 1 ? "factura esperando" : "facturas esperando"} tu decisión.`}
-        </p>
+      <div className="flex items-center gap-4">
+        <Mascot state={mascot} size={80} className="-ml-1" />
+        <div className="min-w-0 space-y-1.5">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-[28px]">{greeting()}, Sergio.</h1>
+          <p className="text-sm text-muted-foreground">
+            {n === 0 ? "No tienes facturas esperando tu decisión." : `Tienes ${n} ${n === 1 ? "factura esperando" : "facturas esperando"} tu decisión.`}
+          </p>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Chip label="Pagadas" value={summary.paid} className={OUTCOME_STYLE.PAY} />
@@ -67,7 +76,38 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
         <span className="ml-1 text-[13px] font-medium text-brand">Autonomía {Math.round(summary.autonomy_pct)} %</span>
       </div>
       {latest && <LatestCard invoice={latest} />}
+      <RecentActivity />
     </div>
+  );
+}
+
+// Fills the room under "Lo último" on tall screens; hidden when the viewport is short.
+function RecentActivity() {
+  const { data } = usePolling(() => api.activity(4), 5000);
+  const [now] = useState(() => Date.now());
+  if (!data || data.length === 0) return null;
+  return (
+    <section className="hidden lg:[@media(min-height:820px)]:block">
+      <p className="mb-2 px-1 text-xs text-muted-foreground">Actividad reciente</p>
+      <ul className="divide-y rounded-2xl border bg-card">
+        {data.slice(0, 4).map((a) => {
+          const { icon: Icon, tone } = ACTIVITY_KIND[a.kind];
+          return (
+            <li key={a.id}>
+              <Link href={a.invoice_id ? `/facturas/${a.invoice_id}` : a.proposal_id ? "/reglas" : "/facturas"} className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none">
+                <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", tone)}><Icon className="size-3.5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium">{a.title}</span>
+                  {a.detail && <span className="block truncate text-xs text-muted-foreground">{a.detail}</span>}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{ago(a.at, now)}</span>
+                <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -78,6 +118,7 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
   const latest = invoices ? [...invoices].sort((a, b) => b.received_at.localeCompare(a.received_at))[0] : undefined;
 
   const mascot = useMascotState(latest, waiting);
+  const home = messages.length === 0;
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -97,14 +138,14 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
   };
 
   return (
-    <section className={cn("flex min-h-0 flex-col", className)}>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4">
-        <div className="mx-auto w-full max-w-2xl py-8">
-          {messages.length === 0 ? <Home summary={summary} latest={latest} mascot={mascot} /> : <Conversation messages={messages} waiting={waiting} />}
+    <section className={cn("flex min-h-0 flex-col", home && "justify-center", className)}>
+      <div className={cn("min-h-0 overflow-y-auto px-4", !home && "flex-1")}>
+        <div className={cn("mx-auto w-full max-w-2xl", home ? "pb-5 pt-6" : "py-8")}>
+          {home ? <Home summary={summary} latest={latest} mascot={mascot} /> : <Conversation messages={messages} waiting={waiting} />}
           <div ref={end} />
         </div>
       </div>
-      <div className="px-4">
+      <div className={cn("px-4", home && "pb-6")}>
         <div className="mx-auto w-full max-w-2xl"><Composer disabled={waiting} onSend={send} /></div>
       </div>
     </section>

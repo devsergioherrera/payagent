@@ -54,16 +54,16 @@ export function buildSteps(invoice: InvoiceDetail): Step[] {
       lines: [approval ? `${approval.verdict === "APPROVED" ? "Aprobada" : "Rechazada"} por ${approval.approver}` : (human?.label ?? ""), ...(approval?.note ? [`«${approval.note}»`] : [])],
     });
   }
-  return steps;
+  // A step without data never happened for this invoice (history rows have no read): leave it out.
+  return steps.filter((s) => s.at != null);
 }
 
 function StepItem({ step, last }: { step: Step; last: boolean }) {
   const [open, setOpen] = useState(false);
-  const done = step.at != null;
   const Icon = step.icon;
   return (
     <li className="relative flex min-w-0 flex-1 flex-col items-center gap-1">
-      {!last && <span aria-hidden className={cn("absolute left-1/2 top-3.5 h-0.5 w-full", done ? "bg-brand/40" : "bg-border")} />}
+      {!last && <span aria-hidden className="absolute left-1/2 top-3.5 h-0.5 w-full bg-brand/40" />}
       <Tooltip open={open} onOpenChange={setOpen}>
         <TooltipTrigger
           render={<button type="button" onClick={() => setOpen((v) => !v)} aria-label={`${step.label}: detalle`} />}
@@ -71,20 +71,20 @@ function StepItem({ step, last }: { step: Step; last: boolean }) {
         >
           <span className={cn(
             "grid size-7 place-items-center rounded-full border-2 bg-card",
-            done ? (step.failed ? "border-hold text-hold" : "border-brand bg-brand-soft text-brand") : "border-dashed border-border text-muted-foreground",
+            step.failed ? "border-hold text-hold" : "border-brand bg-brand-soft text-brand",
           )}>
             <Icon className="size-3.5" />
           </span>
         </TooltipTrigger>
-        {done && step.lines.length > 0 && (
+        {step.lines.length > 0 && (
           <TooltipContent side="bottom" className="flex-col items-start gap-0.5 py-2">
             <span className="font-medium">{step.label}</span>
             {step.lines.map((l) => <span key={l} className="opacity-80">{l}</span>)}
           </TooltipContent>
         )}
       </Tooltip>
-      <p className={cn("max-w-full text-[10px] font-medium leading-none sm:text-[11px]", !done && "text-muted-foreground")}>{step.label}</p>
-      <p className="whitespace-nowrap text-[10px] leading-none tabular-nums text-muted-foreground sm:text-[11px]">{step.at ? time(step.at) : "Pendiente"}</p>
+      <p className="max-w-full text-[10px] font-medium leading-none sm:text-[11px]">{step.label}</p>
+      <p className="whitespace-nowrap text-[10px] leading-none tabular-nums text-muted-foreground sm:text-[11px]">{time(step.at!)}</p>
     </li>
   );
 }

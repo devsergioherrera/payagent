@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Section } from "./section";
 
 type Doc = { kind: "image" | "pdf" | "text" | "other"; text?: string };
 
@@ -40,9 +41,18 @@ export function OpenLink({ url }: { url: string }) {
   );
 }
 
-export function DocumentView({ url }: { url: string }) {
+// The card exists only when there is a file to show: no file, no card.
+export function DocumentCard({ url }: { url: string }) {
   const doc = useDoc(url);
-  if (!doc) return <Skeleton className="h-full w-full rounded-xl" />;
+  if (doc?.kind === "other") return null;
+  return (
+    <Section title="Documento original" icon={FileText} aside={<OpenLink url={url} />} bodyClassName="p-3">
+      <div className="h-[190px]">{doc ? <DocumentView doc={doc} url={url} /> : <Skeleton className="h-full w-full rounded-xl" />}</div>
+    </Section>
+  );
+}
+
+function DocumentView({ doc, url }: { doc: Doc; url: string }) {
   if (doc.kind === "image") {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={url} alt="Factura original" className="h-full w-full rounded-xl border bg-white object-contain" />;
@@ -57,9 +67,5 @@ export function DocumentView({ url }: { url: string }) {
   if (doc.kind === "text") {
     return <pre className="h-full overflow-auto whitespace-pre-wrap rounded-xl border bg-background p-4 font-mono text-xs leading-relaxed">{doc.text}</pre>;
   }
-  return (
-    <div className="grid h-full place-items-center rounded-xl bg-secondary text-center text-sm text-muted-foreground">
-      <span className="flex flex-col items-center gap-2"><FileText className="size-6" />Documento no disponible</span>
-    </div>
-  );
+  return null;
 }
