@@ -233,7 +233,7 @@ class PostgresDecisionSession:
 
     def save_decision(self, invoice_id: str, operation_id: str, decision: Decision, explanation: str) -> str:
         conn = self._conn
-        status = "FINAL" if decision.outcome is Outcome.PAY else "PENDING_HUMAN"
+        status = "PENDING_HUMAN" if decision.outcome is Outcome.ESCALATE else "FINAL"  # only ESCALATE waits
         # A retried invoice replaces its earlier, unresolved decision.
         conn.execute(
             "delete from decision_rule_hit where decision_id in (select id from decision where invoice_id = %s)",

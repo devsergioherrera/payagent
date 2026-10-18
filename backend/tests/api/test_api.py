@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import uuid
 from collections.abc import Iterator
 
@@ -143,6 +144,18 @@ def test_resolve_paths(client: TestClient, cleanup):
     assert client.post(f"/invoices/{inv}/resolve", json={"verdict": "APPROVED"}).status_code == 409
     final = _decided_invoice(cleanup, status="FINAL", outcome="PAY")
     assert client.post(f"/invoices/{final}/resolve", json={"verdict": "APPROVED"}).status_code == 409
+    held = _decided_invoice(cleanup, status="FINAL", outcome="HOLD")
+    assert client.post(f"/invoices/{held}/resolve", json={"verdict": "APPROVED"}).status_code == 409
+
+
+def test_invoices_date_filter(client: TestClient, cleanup):
+    _decided_invoice(cleanup)
+    today = datetime.now(timezone.utc).date().isoformat()  # received_at is stored in UTC
+    base = {"q": "test-N1", "from": today, "to": today}
+    res = client.get("/invoices", params=base)
+    assert res.json() and res.headers["X-Total-Count"] == str(len(res.json()))
+    assert client.get("/invoices", params={**base, "from": "2999-01-01", "to": "2999-01-02"}).json() == []
+    assert client.get("/invoices", params={**base, "to": "2000-01-01", "from": "2000-01-01"}).json() == []
 
 
 def test_summary_vendors_costs(client: TestClient):

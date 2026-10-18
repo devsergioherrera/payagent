@@ -1,5 +1,5 @@
 """Read models for the HTTP API: plain SQL, one or two queries per view."""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from psycopg import Connection
@@ -95,9 +95,16 @@ class ApiQueries:
 
     @staticmethod
     def _invoice_filters(
-        outcome: str | None, status: str | None, q: str | None, vendor_id: str | None = None
+        outcome: str | None, status: str | None, q: str | None, vendor_id: str | None = None,
+        date_from: date | None = None, date_to: date | None = None,
     ) -> tuple[str, list]:
         where, params = [], []
+        if date_from:
+            where.append("i.received_at >= %s::date")
+            params.append(date_from)
+        if date_to:  # inclusive: the whole `to` day
+            where.append("i.received_at < (%s::date + 1)")
+            params.append(date_to)
         if outcome:
             where.append("d.outcome = %s")
             params.append(outcome)
@@ -121,17 +128,18 @@ class ApiQueries:
     def list_invoices(
         self, outcome: str | None = None, status: str | None = None, q: str | None = None, limit: int = 300,
         offset: int = 0, vendor_id: str | None = None,
+        date_from: date | None = None, date_to: date | None = None,
     ) -> list[InvoiceSummary]:
-        clause, params = self._invoice_filters(outcome, status, q, vendor_id)
+        clause, params = self._invoice_filters(outcome, status, q, vendor_id, date_from, date_to)
         query = self._SUMMARY_SELECT + clause + " order by i.received_at desc, i.id limit %s offset %s"
         with self._pool.connection() as conn:
             return [self._summary(r) for r in _rows(conn, query, (*params, limit, offset))]
 
     def count_invoices(
         self, outcome: str | None = None, status: str | None = None, q: str | None = None,
-        vendor_id: str | None = None,
+        vendor_id: str | None = None, date_from: date | None = None, date_to: date | None = None,
     ) -> int:
-        clause, params = self._invoice_filters(outcome, status, q, vendor_id)
+        clause, params = self._invoice_filters(outcome, status, q, vendor_id, date_from, date_to)
         with self._pool.connection() as conn:
             return conn.execute("select count(*)" + self._SUMMARY_FROM + clause, params).fetchone()[0]
 
@@ -277,11 +285,11 @@ class ApiQueries:
             raise NotFound(invoice_id)
         with self._pool.connection() as conn:
             row = conn.execute(
-                "select id, status from decision where invoice_id = %s for update", (invoice_id,)
+                "select id, status, outcome from decision where invoice_id = %s for update", (invoice_id,)
             ).fetchone()
             if row is None:
                 raise NotFound(invoice_id)
-            if row[1] != "PENDING_HUMAN":
+            if row[1] != "PENDING_HUMAN" or row[2] != "ESCALATE":
                 raise NotPending(invoice_id)
             conn.execute(
                 "insert into approval (decision_id, verdict, note, approver) values (%s, %s, %s, %s)",
@@ -360,7 +368,7 @@ class ApiQueries:
                      count(*) filter (where d.outcome = 'PAY') as paid,
                      count(*) filter (where d.outcome = 'HOLD') as held,
                      count(*) filter (where d.outcome = 'ESCALATE') as escalated,
-                     count(*) filter (where d.status = 'PENDING_HUMAN') as pending_human,
+                     count(*) filter (where d.outcome = 'ESCALATE' and d.status = 'PENDING_HUMAN') as pending_human,
                      count(*) filter (where d.status = 'FINAL' and a.id is null) as autonomous,
                      count(d.id) as decided
                    from decision d left join approval a on a.decision_id = d.id""",
