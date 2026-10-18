@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 700" width="1280" height="700" role="img" aria-label="Hexagonal architecture: ports and adapters around a pure rules engine">
+  <defs><pattern id="g" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".04"/></pattern>
+  <clipPath id="r"><rect width="1280" height="700" rx="28"/></clipPath></defs>
+  <g clip-path="url(#r)" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <rect width="1280" height="700" fill="#0B0B0F"/><rect width="1280" height="700" fill="url(#g)"/>
+    <rect x="1" y="1" width="1278" height="698" rx="27" fill="none" stroke="#fff" stroke-opacity=".08"/>
+    <rect x="40" y="36" width="250" height="30" rx="15" fill="#1F1A3D"/><text x="58" y="56" font-size="13" font-weight="700" letter-spacing="1.6" fill="#B9ABFF">HEXAGONAL ARCHITECTURE</text>
+    <text x="1240" y="56" text-anchor="end" font-size="14" fill="#A3A3B2">Dependencies point inward. domain/ imports nothing.</text>
+    <polygon points="890,330 765,546.5 515,546.5 390,330 515,113.5 765,113.5" fill="#14141A" stroke="#5B3DF5" stroke-width="2.5"/>
+    <text x="640" y="140" text-anchor="middle" font-size="13" font-weight="700" letter-spacing="1.4" fill="#8B75FF">USE CASES (app/)</text>
+    <text x="640" y="160" text-anchor="middle" font-size="12" fill="#A3A3B2">process_invoice</text><text x="640" y="177" text-anchor="middle" font-size="12" fill="#A3A3B2">propose_rules, draft_rule</text>
+    <polygon points="760,330 700,434 580,434 520,330 580,226 700,226" fill="#5B3DF5"/>
+    <text x="640" y="318" text-anchor="middle" font-size="22" font-weight="800" fill="#fff">Domain</text>
+    <text x="640" y="344" text-anchor="middle" font-size="14" fill="#E6E0FF">Rules engine</text>
+    <text x="640" y="364" text-anchor="middle" font-size="13" fill="#E6E0FF">Pure Python, no I/O</text>
+    <text x="640" y="520" text-anchor="middle" font-size="13" fill="#A3A3B2">ports/ are typing.Protocol interfaces</text>
+    <text x="150" y="104" text-anchor="middle" font-size="13" font-weight="700" letter-spacing="1.4" fill="#8B75FF">INPUTS (adapters)</text>
+    <text x="1120" y="104" text-anchor="middle" font-size="13" font-weight="700" letter-spacing="1.4" fill="#8B75FF">OUTPUTS (adapters)</text>
+    <path d="M270 150L366 250" stroke="#8B75FF" stroke-width="2" stroke-dasharray="6 5"/>
+<path d="M270 250L366 250" stroke="#A3A3B2" stroke-width="2"/>
+<path d="M270 410L366 410" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="40" y="120" width="230" height="60" rx="14" fill="#14141A" stroke="#8B75FF" stroke-dasharray="6 5"/><text x="58" y="146" font-size="16" font-weight="700" fill="#F3F3F6">Your next source</text><text x="58" y="166" font-size="13" fill="#A3A3B2">SFTP, WhatsApp, ERP webhook</text>
+<rect x="40" y="220" width="230" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="58" y="246" font-size="16" font-weight="700" fill="#F3F3F6">Gmail inbox</text><text x="58" y="266" font-size="13" fill="#A3A3B2">imap_source.py</text>
+<rect x="40" y="380" width="230" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="58" y="406" font-size="16" font-weight="700" fill="#F3F3F6">Upload and chat</text><text x="58" y="426" font-size="13" fill="#A3A3B2">HTTP API, sha256 dedupe</text>
+<rect x="361.0" y="234" width="150" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="436" y="255" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">InvoiceSource</text>
+<rect x="361.0" y="394" width="150" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="436" y="415" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">HTTP API</text>
+<path d="M872.6005 170L1000 170" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="733.0" y="154" width="130" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="798" y="175" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">Extractor</text>
+<rect x="1000" y="140" width="240" height="60" rx="14" fill="#14141A" stroke="#8B75FF" stroke-dasharray="6 5"/><text x="1018" y="166" font-size="16" font-weight="700" fill="#F3F3F6">Gemini 3.8 flash</text><text x="1018" y="186" font-size="13" fill="#A3A3B2">Reads PDF, image, text</text>
+<path d="M918.7605 250L1000 250" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="779.0" y="234" width="130" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="844" y="255" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">Explainer</text>
+<rect x="1000" y="220" width="240" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="1018" y="246" font-size="16" font-weight="700" fill="#F3F3F6">Gemini</text><text x="1018" y="266" font-size="13" fill="#A3A3B2">Template fallback if it fails</text>
+<path d="M965 330L1000 330" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="825.0" y="314" width="130" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="890" y="335" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">Notifier</text>
+<rect x="1000" y="300" width="240" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="1018" y="326" font-size="16" font-weight="700" fill="#F3F3F6">SMTP</text><text x="1018" y="346" font-size="13" fill="#A3A3B2">Reply and escalation mail</text>
+<path d="M918.84 410L1000 410" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="779.0" y="394" width="130" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="844" y="415" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">Repositories</text>
+<rect x="1000" y="380" width="240" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="1018" y="406" font-size="16" font-weight="700" fill="#F3F3F6">Postgres</text><text x="1018" y="426" font-size="13" fill="#A3A3B2">Supabase or any Postgres 15+</text>
+<path d="M872.6800000000001 490L1000 490" stroke="#A3A3B2" stroke-width="2"/>
+<rect x="733.0" y="474" width="130" height="32" rx="16" fill="#1F1A3D" stroke="#8B75FF"/><text x="798" y="495" text-anchor="middle" font-size="13" font-weight="700" fill="#E6E0FF">UsageMeter</text>
+<rect x="1000" y="460" width="240" height="60" rx="14" fill="#14141A" stroke="#2A2A33"/><text x="1018" y="486" font-size="16" font-weight="700" fill="#F3F3F6">llm_usage</text><text x="1018" y="506" font-size="13" fill="#A3A3B2">Cost per call, per operation</text>
+    <rect x="40" y="590" width="580" height="80" rx="16" fill="#14141A" stroke="#2A2A33"/>
+    <text x="62" y="620" font-size="16" font-weight="700" fill="#F3F3F6">Change the input of invoices</text>
+    <text x="62" y="644" font-size="14" fill="#A3A3B2">Write one InvoiceSource adapter that yields documents. Rules, engine</text>
+    <text x="62" y="662" font-size="14" fill="#A3A3B2">and UI do not change.</text>
+    <rect x="660" y="590" width="580" height="80" rx="16" fill="#14141A" stroke="#2A2A33"/>
+    <text x="682" y="620" font-size="16" font-weight="700" fill="#F3F3F6">Change the model</text>
+    <text x="682" y="644" font-size="14" fill="#A3A3B2">Write one Extractor adapter (another LLM, or plain OCR). Same port,</text>
+    <text x="682" y="662" font-size="14" fill="#A3A3B2">same tests, and the engine never knows.</text>
+  </g>
+</svg>
