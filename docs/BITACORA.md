@@ -12,13 +12,13 @@ Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va
 
 ## Estado al 17 oct, 21:45
 **En producción (`main`, abeb1f6):** todo hasta el despliegue con migraciones automáticas.
-**Solo en `develop` (falta desplegar):** W5 (pulido UX), W6 (Política de pagos visual), contraste y transiciones, limpieza de reglas de test, arreglo de fechas en el detalle.
+**Solo en `develop` (falta desplegar):** W7 (un solo estado de factura en todas las pantallas, historial con sus 16 reglas), W5 (pulido UX), W6 (Política de pagos visual), contraste y transiciones, limpieza de reglas de test, arreglo de fechas en el detalle.
 
-**En curso:**
-- W7 `worktree-w7-state`: un solo estado de factura en backend y frontend (`state` en InvoiceSummary + `<StateBadge>`), y backfill de las reglas evaluadas del historial. Origen: la Mesa mostraba "Escalada" en facturas que el dueño ya aprobó.
+**En curso:** nada.
 
 **Pendiente, en orden:**
-1. Integrar W7, revisarlo con capturas reales y desplegar `develop` a `main`.
+1. Desplegar `develop` a `main`.
+   Detalles menores vistos: la actividad muestra montos sin formato ("1,950.00 USD", se arma en Python); el titular de NW-8703 dice "Posible cobro repetido" porque el backfill evaluó con datos de hoy.
 2. Prueba de correo de punta a punta: el conector de Gmail de claude.ai está caído; el dueño puede mandar `backend/tests/fixtures/invoices/02.pdf` a `facturaya.pagos@gmail.com`.
 3. Antes de grabar: `scripts/reset-demo.sh`, luego el guion de demo (subir 01, 07 y 11; correo; aprobar; Proponer reglas; aceptar la excepción de Northwind; 16 pasa a Pagar).
 4. Video de 3 minutos y entrega a las 10:00.
@@ -31,6 +31,7 @@ Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va
 - Deploy nunca resetea datos; aplica migraciones pendientes antes de reiniciar.
 
 ## Historial
+- 21:55 W7 integrado y verificado con datos reales: la Mesa dice "Aprobada por ti" y los chips cuentan por estado.
 - 21:45 Bitácora creada. W7 relanzado tras una interrupción.
 - 21:40 Fechas sin hora se mostraban un día antes (zona horaria): arreglado en `format.ts`.
 - 21:30 Auditoría UX (`docs/UX-AUDIT.md`); W5 y W6 integrados.
