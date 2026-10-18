@@ -9,6 +9,12 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-docker compose up -d --build --remove-orphans
+docker compose build
+# Pending migrations run with the new image before anything restarts. Never resets data;
+# if a migration fails, set -e stops here and the previous version keeps serving.
+docker compose run --rm --no-deps \
+  -v "$(pwd)/db/migrations:/migrations:ro" -v "$(pwd)/backend/scripts:/app/scripts:ro" \
+  -e MIGRATIONS_DIR=/migrations api python scripts/migrate.py
+docker compose up -d --remove-orphans
 docker image prune -f >/dev/null
 docker compose ps

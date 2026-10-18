@@ -8,7 +8,7 @@ from pathlib import Path
 
 import psycopg
 
-MIGRATIONS = Path(__file__).resolve().parents[2] / "db" / "migrations"
+MIGRATIONS = Path(os.environ.get("MIGRATIONS_DIR") or Path(__file__).resolve().parents[2] / "db" / "migrations")
 
 # Supabase ships these roles; plain Postgres does not, and 003 revokes from them.
 SUPABASE_ROLES = """
