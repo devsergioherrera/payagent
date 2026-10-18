@@ -31,6 +31,13 @@ class FakeNotifier:
     def notify_escalation(self, subject, body): ...
 
 
+class FakeProposals:
+    learned: list[str] = []
+
+    def learn_from(self, invoice_id):
+        self.learned.append(invoice_id)
+
+
 @pytest.fixture
 def pipeline() -> FakePipeline:
     return FakePipeline()
@@ -43,6 +50,7 @@ def anon(monkeypatch, pipeline, tmp_path) -> Iterator[TestClient]:
     from payagent.adapters.upload.storage import FileStorage
 
     app.dependency_overrides[deps.get_pipeline] = lambda: pipeline
+    app.dependency_overrides[deps.get_proposals] = lambda: FakeProposals()
     app.dependency_overrides[deps.get_notifier] = lambda: FakeNotifier()
     app.dependency_overrides[deps.get_storage] = lambda: FileStorage(tmp_path)
     yield TestClient(app)
@@ -150,7 +158,30 @@ def test_state_per_combination(client: TestClient, cleanup):
     assert after["paid"] == before["paid"] + 1 and after["rejected"] == before["rejected"] + 1
     assert after["waiting"] == before["waiting"] - 2
     kinds = {i["kind"] for i in client.get("/activity?limit=50").json()}
-    assert kinds <= {"PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "PROPOSAL", "EMAIL_FAILED"}
+    assert kinds <= {"PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "LEARNED", "EMAIL_FAILED"}
+
+
+def test_resolve_triggers_learning_without_blocking(client: TestClient, cleanup):
+    FakeProposals.learned.clear()
+    inv = _decided_invoice(cleanup)
+    assert client.post(f"/invoices/{inv}/resolve", json={"verdict": "APPROVED"}).status_code == 200
+    assert FakeProposals.learned == [inv]
+
+
+def test_learned_rule_shows_on_a_paid_invoice(client: TestClient, cleanup):
+    inv = _decided_invoice(cleanup, status="FINAL", outcome="PAY")
+    assert client.get(f"/invoices/{inv}").json()["learned_rule"] is None
+    allow = str(uuid.uuid4())
+    with get_pool().connection() as conn:
+        conn.execute(
+            "insert into rule (id, name, natural_language, effect, origin, proposed_by, approved_by, active)"
+            " values (%s, 'test-aprendida', 'x', 'ALLOW', 'AGENT', 'Agente', 'test', false)", (allow,))
+        conn.execute(
+            "update decision_rule_hit set result = 'OVERRIDDEN', overridden_by_rule_id = %s "
+            "where decision_id in (select id from decision where invoice_id = %s)", (allow, inv))
+    cleanup["rule"].append(allow)
+    learned = client.get(f"/invoices/{inv}").json()["learned_rule"]
+    assert learned["id"] == allow and learned["name"] == "test-aprendida" and learned["approved_at"]
 
 
 def test_resolve_paths(client: TestClient, cleanup):

@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
@@ -13,7 +13,7 @@ from typing import Any, Protocol
 from google.genai import types
 
 from payagent.adapters.gemini._call import call_with_retry, record_usage
-from payagent.api.schemas import ConditionView, InvoiceSummary, ProposalRun, ProposalView, RuleDraft, RuleView
+from payagent.api.schemas import ConditionView, InvoiceSummary, ProposalRun, ProposalView, RuleDraft, RuleView, TraceStep
 from payagent.app.rule_text import condition_text, rule_summary
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator, Rule
 from payagent.ports.repositories import ColumnInfo, FeedbackLog, Operations, ResolvedCase, RuleCatalog
@@ -111,6 +111,7 @@ class StoredProposal:
     evidence: list[InvoiceSummary]
     status: str
     created_at: datetime
+    trace: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -170,11 +171,16 @@ class ProposalService:
         try:
             cases = list(self.feedback.unreviewed(REVIEW_BATCH))
             created: list[str] = []
+            patterns: list[list[ResolvedCase]] = []
+            accepted: list[NewProposal] = []
+            discarded = 0
             if cases:
                 patterns = find_patterns(cases)
-                accepted = self._ask(operation_id, cases, patterns) if patterns else []
+                if patterns:
+                    accepted, discarded = self._ask(operation_id, cases, patterns)
                 created = self.proposals.save(operation_id, accepted, [c.invoice_id for c in cases])
-            self.operations.finish(operation_id)
+            trace = build_trace(cases, patterns, accepted, discarded)
+            self.operations.finish(operation_id, detail=[{"label": t.label, "detail": t.detail} for t in trace])
         except Exception as exc:
             self.operations.finish(operation_id, error=str(exc)[:500] or type(exc).__name__)
             raise
@@ -183,7 +189,18 @@ class ProposalService:
             operation_id=operation_id,
             reviewed=len(cases),
             created=[self._view(by_id[i]) for i in created if i in by_id],
+            trace=trace,
         )
+
+    def learn_from(self, invoice_id: str) -> ProposalRun | None:
+        """Called after a human resolves an invoice: review only if that resolution could complete a pattern."""
+        cases = list(self.feedback.unreviewed(REVIEW_BATCH))
+        if not could_complete_pattern(cases, invoice_id):
+            return None
+        try:
+            return self.run()
+        except ProposalRunInProgress:
+            return None
 
     def list(self, status: str = "PENDING") -> list[ProposalView]:
         return [self._view(p) for p in self.proposals.list(status)]
@@ -241,6 +258,7 @@ class ProposalService:
                 summary=rule_summary(p.effect, p.conditions),
             ),
             rationale=p.rationale, evidence=p.evidence, status=p.status, created_at=p.created_at,  # type: ignore[arg-type]
+            trace=[TraceStep(label=t["label"], detail=t.get("detail")) for t in p.trace],
         )
 
     def _rule_view(self, r: RuleInfo) -> RuleView:
@@ -252,7 +270,7 @@ class ProposalService:
             summary=rule_summary(r.effect, r.conditions),
         )
 
-    def _ask(self, operation_id: str, cases: list[ResolvedCase], patterns: list[list[ResolvedCase]]) -> list[NewProposal]:
+    def _ask(self, operation_id: str, cases: list[ResolvedCase], patterns: list[list[ResolvedCase]]) -> tuple[list[NewProposal], int]:
         sources = {s.name: self.catalog.describe_source(s.name) for s in self.catalog.list_sources()}
         active = self.proposals.active_rules()
         prompt = self._prompt(cases, patterns, sources, active)
@@ -273,6 +291,7 @@ class ProposalService:
         rejected = {_key(c) for c in self.proposals.recently_rejected(30)}
         verdicts = {c.invoice_id: c.verdict for c in cases}
         out: list[NewProposal] = []
+        discarded = 0
         for call in response.function_calls or []:
             if call.name != "proponer_regla" or len(out) >= MAX_PROPOSALS:
                 continue
@@ -280,12 +299,14 @@ class ProposalService:
                 proposal = validate(dict(call.args or {}), sources, verdicts)
             except ValueError as exc:
                 log.warning("Discarding invalid proposal: %s", exc)
+                discarded += 1
                 continue
             if _key(proposal.conditions, proposal.effect) in seen or _key(proposal.conditions) in rejected:
+                discarded += 1
                 continue
             seen.add(_key(proposal.conditions, proposal.effect))
             out.append(proposal)
-        return out
+        return out, discarded
 
     def _prompt(self, cases, patterns, sources, active) -> str:
         labels = self._labels()
@@ -322,6 +343,62 @@ class ProposalService:
              "active_rules": [{"name": r.name, "effect": r.effect.value} for r in active]},
             ensure_ascii=False,
         )
+
+
+def could_complete_pattern(cases: list[ResolvedCase], invoice_id: str) -> bool:
+    """True when this resolution plus at least MIN_PATTERN - 1 earlier unreviewed ones share vendor and verdict."""
+    mine = next((c for c in cases if c.invoice_id == invoice_id), None)
+    if mine is None or not mine.vendor_name or not mine.fired_rules:
+        return False
+    same = [c for c in cases if c.vendor_name == mine.vendor_name and c.verdict == mine.verdict and c.fired_rules]
+    return len(same) >= MIN_PATTERN
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def build_trace(
+    cases: list[ResolvedCase], patterns: list[list[ResolvedCase]], accepted: list[NewProposal], discarded: int
+) -> list[TraceStep]:
+    """The run told as steps, from what it actually saw and did (nothing here is invented)."""
+    if not cases:
+        return [TraceStep(label="No hay decisiones nuevas tuyas por revisar")]
+    approved = sum(c.verdict == "APPROVED" for c in cases)
+    steps = [TraceStep(
+        label=f"Revisé {_count(len(cases), 'decisión tuya', 'decisiones tuyas')}",
+        detail=f"{_count(approved, 'aprobada', 'aprobadas')}, {_count(len(cases) - approved, 'rechazada', 'rechazadas')}",
+    )]
+    if not patterns:
+        steps.append(TraceStep(
+            label="No encontré un patrón todavía",
+            detail=f"Hacen falta {MIN_PATTERN} decisiones iguales del mismo proveedor",
+        ))
+        return steps
+    for group in patterns:
+        verdict = "aprobadas" if group[0].verdict == "APPROVED" else "rechazadas"
+        total = sum(c.vendor_name == group[0].vendor_name for c in cases)
+        shared = shared_rules(group)
+        tail = f", todas con «{shared[0]}»" if len(shared) == 1 else ", todas con las mismas reglas"
+        steps.append(TraceStep(
+            label="Encontré un patrón",
+            detail=f"{group[0].vendor_name}, {verdict} {len(group)} de {total}{tail}",
+        ))
+    if discarded:
+        steps.append(TraceStep(
+            label=f"Descarté {_count(discarded, 'propuesta', 'propuestas')}",
+            detail="Repetía una regla activa o una que rechazaste, o no cuadraba con la evidencia",
+        ))
+    for p in accepted:
+        if p.effect is Effect.ALLOW:
+            steps.append(TraceStep(
+                label="Comprobé que no anula ningún Frenar ni el umbral de aprobación",
+                detail="Una regla de permitir solo levanta escalaciones anulables",
+            ))
+        steps.append(TraceStep(label="Propuesta lista", detail=p.name))
+    if not accepted:
+        steps.append(TraceStep(label="Ninguna propuesta merecía una regla nueva"))
+    return steps
 
 
 def shared_rules(group: list[ResolvedCase]) -> list[str]:

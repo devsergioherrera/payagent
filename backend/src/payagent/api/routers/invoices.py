@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 from datetime import date
 from pathlib import Path
@@ -6,13 +7,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Qu
 from fastapi.responses import FileResponse
 
 from payagent.adapters.postgres.queries import ApiQueries, NotFound, NotPending
-from payagent.api.deps import get_invoices, get_notifier, get_pipeline, get_queries, get_storage
+from payagent.api.deps import get_invoices, get_notifier, get_pipeline, get_proposals, get_queries, get_storage
 from payagent.api.schemas import Created, InvoiceDetail, InvoiceState, InvoiceSummary, ResolveRequest
 from payagent.adapters.postgres.notifications import PostgresNotifications
 from payagent.app.process_invoice import process_invoice
 from payagent.config import settings
 from payagent.ports.invoice_source import IncomingDocument, SourceType
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/invoices")
 
 
@@ -94,13 +96,26 @@ def invoice_file(invoice_id: str, queries: ApiQueries = Depends(get_queries)) ->
 
 
 @router.post("/{invoice_id}/resolve")
-def resolve(invoice_id: str, body: ResolveRequest, queries: ApiQueries = Depends(get_queries)) -> InvoiceDetail:
+def resolve(
+    invoice_id: str, body: ResolveRequest, background: BackgroundTasks,
+    queries: ApiQueries = Depends(get_queries), proposals=Depends(get_proposals),
+) -> InvoiceDetail:
     note = (body.note or "").strip() or None
     if body.verdict == "REJECTED" and note is None:
         raise HTTPException(status_code=422, detail="Rechazar requiere una nota")
     try:
-        return queries.resolve(invoice_id, body.verdict, note, settings.admin_name)
+        detail = queries.resolve(invoice_id, body.verdict, note, settings.admin_name)
     except NotFound:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
     except NotPending:
         raise HTTPException(status_code=409, detail="Esta factura no está pendiente de revisión")
+    background.add_task(learn_from_resolution, proposals, invoice_id)
+    return detail
+
+
+def learn_from_resolution(proposals, invoice_id: str) -> None:
+    """The agent notices a pattern on its own. Never raises: the resolution already succeeded."""
+    try:
+        proposals.learn_from(invoice_id)
+    except Exception:
+        log.exception("could not learn from resolution of %s", invoice_id)

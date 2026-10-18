@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection, sql
@@ -35,11 +35,12 @@ class PostgresOperations:
             ).fetchone()
         return str(row[0])
 
-    def finish(self, operation_id: str, error: str | None = None) -> None:
+    def finish(self, operation_id: str, error: str | None = None, detail: Any = None) -> None:
         with self._pool.connection() as conn:
             conn.execute(
-                "update operation set status = %s, error = %s, finished_at = now() where id = %s",
-                ("DONE" if error is None else "FAILED", error, operation_id),
+                "update operation set status = %s, error = %s, detail = %s, finished_at = now() where id = %s",
+                ("DONE" if error is None else "FAILED", error,
+                 Jsonb(detail) if detail is not None else None, operation_id),
             )
 
 

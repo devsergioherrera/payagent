@@ -10,6 +10,7 @@ from payagent.adapters.postgres.db import get_pool
 from payagent.adapters.postgres.invoice_state import INVOICE_STATE_SQL
 from payagent.api.schemas import (
     ActivityItem,
+    LearnedRule,
     Approval,
     ColumnView,
     ConditionView,
@@ -221,6 +222,18 @@ class ApiQueries:
                from operation o where o.invoice_id = %s and o.type = 'PROCESS_INVOICE' order by o.started_at""",
             (invoice_id,),
         )
+        learned = None
+        if r["decision_id"] and r["outcome"] == "PAY":
+            row = _row(
+                conn,
+                """select o.id::text, o.name, o.approved_at
+                   from decision_rule_hit h join rule o on o.id = h.overridden_by_rule_id
+                   where h.decision_id = %s and h.result = 'OVERRIDDEN' and o.origin = 'AGENT' and o.effect = 'ALLOW'
+                   order by o.approved_at limit 1""",
+                (r["decision_id"],),
+            )
+            if row:
+                learned = LearnedRule(id=row["id"], name=row["name"], approved_at=row["approved_at"])
         notes = _rows(
             conn,
             "select kind, recipient, status, created_at from notification where invoice_id = %s",
@@ -261,7 +274,7 @@ class ApiQueries:
                 confidence=_f(r["confidence"]),
             ),
             explanation=r["explanation"], hits=hits, approval=approval, timeline=steps, cost=cost,
-            file_url=f"/api/invoices/{invoice_id}/file", error=r["error"],
+            file_url=f"/api/invoices/{invoice_id}/file", error=r["error"], learned_rule=learned,
         )
 
     def invoice_file(self, invoice_id: str) -> tuple[str, str | None]:
@@ -569,7 +582,7 @@ class ApiQueries:
                     from decision d join invoice i on i.id = d.invoice_id left join vendor v on v.id = i.vendor_id
                     left join approval a on a.decision_id = d.id where i.status <> 'FAILED'
                   union all
-                  select 'p' || p.id::text, 'PROPOSAL', p.name, null, null, p.rationale, null, p.id::text, p.created_at
+                  select 'p' || p.id::text, 'LEARNED', p.name, null, null, p.rationale, null, p.id::text, p.created_at
                     from rule_proposal p where p.status = 'PENDING'
                   union all
                   select 'n' || n.id::text, 'EMAIL_FAILED', n.recipient, null, null, n.error, n.invoice_id::text, null, n.created_at
@@ -588,7 +601,7 @@ class ApiQueries:
             "WAITING": (f"Espera tu decisión: {who}", amount),
             "APPROVED": (f"Aprobada por ti: {who}", amount),
             "REJECTED": (f"Rechazada por ti: {who}", amount),
-            "PROPOSAL": ("Regla propuesta", f"{who}"),
+            "LEARNED": ("El agente aprendió algo", f"{who}"),
             "EMAIL_FAILED": ("No se pudo enviar un correo", f"A {who}"),
         }[r["kind"]]
         return ActivityItem(id=r["id"], kind=r["kind"], title=title, detail=detail,
