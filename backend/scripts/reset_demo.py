@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from payagent.adapters.postgres import close_pool, get_pool
+from payagent.adapters.postgres.maintenance import drop_test_rules
 
 # One transaction: either the whole demo state goes or none of it.
 DELETES = [
@@ -26,6 +27,8 @@ DELETES = [
 
 def main(assume_yes: bool) -> None:
     with get_pool().connection() as conn:
+        if dropped := drop_test_rules(conn):
+            print(f"Deleted {dropped} test rules.")
         rows = conn.execute("select id, file_path from invoice where source <> 'SEED'").fetchall()
         ids = [r[0] for r in rows]
         if not ids:
