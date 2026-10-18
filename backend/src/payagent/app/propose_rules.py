@@ -14,7 +14,7 @@ from google.genai import types
 
 from payagent.adapters.gemini._call import call_with_retry, record_usage
 from payagent.api.schemas import ConditionView, InvoiceSummary, ProposalRun, ProposalView, RuleDraft, RuleView
-from payagent.app.rule_text import condition_text
+from payagent.app.rule_text import condition_text, rule_summary
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator, Rule
 from payagent.ports.repositories import ColumnInfo, FeedbackLog, Operations, ResolvedCase, RuleCatalog
 from payagent.ports.usage import UsageMeter
@@ -238,6 +238,7 @@ class ProposalService:
             draft=RuleDraft(
                 name=p.name, natural_language=p.natural_language, effect=p.effect.value, overridable=p.overridable,
                 conditions=self._conditions_view(p.conditions),
+                summary=rule_summary(p.effect, p.conditions),
             ),
             rationale=p.rationale, evidence=p.evidence, status=p.status, created_at=p.created_at,  # type: ignore[arg-type]
         )
@@ -248,6 +249,7 @@ class ProposalService:
             conditions=self._conditions_view(r.conditions), id=r.id, origin=r.origin,  # type: ignore[arg-type]
             proposed_by=r.proposed_by, proposed_at=r.proposed_at, approved_by=r.approved_by,
             approved_at=r.approved_at, active=r.active, times_fired=r.times_fired,
+            summary=rule_summary(r.effect, r.conditions),
         )
 
     def _ask(self, operation_id: str, cases: list[ResolvedCase], patterns: list[list[ResolvedCase]]) -> list[NewProposal]:

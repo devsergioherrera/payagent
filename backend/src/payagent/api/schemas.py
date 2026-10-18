@@ -9,9 +9,10 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
   GET  /invoices/{id}/file    -> original document
   POST /invoices/{id}/resolve ResolveRequest -> InvoiceDetail    (409 unless decision.status == PENDING_HUMAN)
   GET  /rules                 -> list[RuleView]
-  POST /rules/draft           DraftRequest -> DraftResponse      (never saves)
-  POST /rules                 RuleDraft -> RuleView               (the human confirmation)
-  POST /rules/{id}/deactivate -> RuleView
+  POST /rules/draft           DraftRequest -> DraftResponse      (never saves; optional invoice_id gives context)
+  POST /rules                 RuleCreate -> RuleView              (the human confirmation; replaces_rule_id swaps a rule)
+  POST /rules/{id}/deactivate -> RuleView      POST /rules/{id}/activate -> RuleView
+  POST /rules/{id}/revise     ReviseRequest -> DraftResponse     (never saves)
   GET  /rule-sources          -> list[RuleSourceView]
   GET  /proposals?status=     -> list[ProposalView]
   POST /proposals/run         -> ProposalRun                      (409 if one is already running)
@@ -156,6 +157,11 @@ class RuleDraft(BaseModel):
     effect: Effect
     overridable: bool
     conditions: list[ConditionView]
+    summary: str = ""  # plain Spanish sentence, e.g. "Pide tu aprobación cuando el monto supere USD 5.000"
+
+
+class RuleCreate(RuleDraft):
+    replaces_rule_id: str | None = None  # the old version is deactivated in the same transaction
 
 
 class RuleView(RuleDraft):
@@ -171,6 +177,11 @@ class RuleView(RuleDraft):
 
 class DraftRequest(BaseModel):
     text: str
+    invoice_id: str | None = None  # "create a rule for this": the drafter sees the invoice and its decision
+
+
+class ReviseRequest(BaseModel):
+    instruction: str  # "súbelo a 8 mil", "que no aplique a Northwind"
 
 
 class DraftResponse(BaseModel):

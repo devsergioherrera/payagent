@@ -79,6 +79,8 @@ class PostgresRules:
             raise ValueError("a rule needs at least one condition")
         with self._pool.connection() as conn:
             self._validate(conn, conditions)
+            if replaces_rule_id is not None:
+                conn.execute("update rule set active = false where id = %s", (replaces_rule_id,))
             rule_id = conn.execute(
                 """
                 insert into rule (name, natural_language, effect, overridable, origin, proposed_by, approved_by,
@@ -113,6 +115,10 @@ class PostgresRules:
     def deactivate(self, rule_id: str) -> None:
         with self._pool.connection() as conn:
             conn.execute("update rule set active = false where id = %s", (rule_id,))
+
+    def activate(self, rule_id: str) -> None:
+        with self._pool.connection() as conn:
+            conn.execute("update rule set active = true where id = %s", (rule_id,))
 
     @staticmethod
     def _validate(conn: Connection, conditions: Sequence[Condition]) -> None:

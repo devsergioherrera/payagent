@@ -10,7 +10,7 @@ from google.genai import types
 
 from payagent.adapters.gemini._call import call_with_retry, record_usage
 from payagent.api.schemas import ConditionView, DraftResponse, RuleDraft
-from payagent.app.rule_text import condition_text
+from payagent.app.rule_text import condition_text, rule_summary
 from payagent.domain.invoice import normalize_id
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator
 from payagent.ports.repositories import ColumnInfo, Operations, RuleCatalog
@@ -46,7 +46,10 @@ Rules of thumb:
 - name: a short Spanish title. natural_language: the user's request, cleaned up, in Spanish.
 - If the request cannot be expressed with the registered sources and columns, do NOT call redactar_regla: \
 answer with one short sentence in Spanish saying what data is missing.
-- If redactar_regla returns an error, fix it and call it again."""
+- If redactar_regla returns an error, fix it and call it again.
+- When the request includes an existing rule to change, return the FULL new version of that rule (all conditions), \
+changing only what the instruction asks for; keep the rest as it is.
+- When the request includes an invoice and its decision as context, write a rule that would handle that kind of case."""
 
 _VALUE_SCHEMA = {
     "anyOf": [
@@ -174,10 +177,12 @@ class RuleDrafter:
     model: str = "gemini-3.8-flash"
     find_vendors: Callable[[str], list[dict[str, str]]] = lambda _text: []
 
-    def draft(self, text: str) -> DraftResponse:
+    def draft(self, text: str, context: str | None = None) -> DraftResponse:
+        """`context` is extra background for the model (an invoice and its decision, or the rule being revised)."""
         op_id = self.operations.start("RULE_DRAFT")
+        prompt = f"{context}\n\nPetición del usuario: {text}" if context else text
         try:
-            response = self._run(text, op_id)
+            response = self._run(prompt, op_id)
         except Exception as exc:
             log.exception("Rule drafting failed")
             self.operations.finish(op_id, error=str(exc)[:500])
@@ -271,12 +276,10 @@ class RuleDrafter:
                 raise RuleError(f"source {source!r} has no column {col!r}; columns: {', '.join(columns[source])}")
             return columns[source][col]
 
-        views: list[ConditionView] = []
-        for raw in raw_conditions:
-            cond = self._condition(raw, column)
-            views.append(self._view(cond, labels))
+        conds = [self._condition(raw, column) for raw in raw_conditions]
+        views = [self._view(c, labels) for c in conds]
         return RuleDraft(name=name, natural_language=natural, effect=effect.value, overridable=overridable,
-                         conditions=views)
+                         conditions=views, summary=rule_summary(effect, conds, labels))
 
     @staticmethod
     def _condition(raw: dict[str, Any], column: Any) -> Condition:

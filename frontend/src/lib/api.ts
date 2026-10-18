@@ -69,14 +69,22 @@ export const api = {
     USE_MOCKS ? mock<InvoiceDetail>(mocks.invoiceDetail) : request<InvoiceDetail>(`/invoices/${id}/resolve`, json(body)),
 
   rules: () => (USE_MOCKS ? mock<RuleView[]>(mocks.rules) : request<RuleView[]>("/rules")),
-  draftRule: (text: string) =>
+  draftRule: (text: string, invoiceId?: string | null) =>
     USE_MOCKS
       ? mock<DraftResponse>({ draft: { ...mocks.rules[0], natural_language: text }, error: null })
-      : request<DraftResponse>("/rules/draft", json({ text })),
-  createRule: (draft: RuleDraft) =>
-    USE_MOCKS ? mock<RuleView>({ ...mocks.rules[0], ...draft, id: "new" }) : request<RuleView>("/rules", json(draft)),
+      : request<DraftResponse>("/rules/draft", json({ text, invoice_id: invoiceId ?? null })),
+  reviseRule: (id: string, instruction: string) =>
+    USE_MOCKS
+      ? mock<DraftResponse>({ draft: mocks.revised(id, instruction), error: null })
+      : request<DraftResponse>(`/rules/${id}/revise`, json({ instruction })),
+  createRule: (draft: RuleDraft, replacesRuleId?: string) =>
+    USE_MOCKS
+      ? mock<RuleView>({ ...mocks.rules[0], ...draft, id: "new" })
+      : request<RuleView>("/rules", json({ ...draft, replaces_rule_id: replacesRuleId ?? null })),
   deactivateRule: (id: string) =>
     USE_MOCKS ? mock<RuleView>({ ...mocks.rules[0], active: false }) : request<RuleView>(`/rules/${id}/deactivate`, { method: "POST" }),
+  activateRule: (id: string) =>
+    USE_MOCKS ? mock<RuleView>({ ...mocks.rules[0], active: true }) : request<RuleView>(`/rules/${id}/activate`, { method: "POST" }),
   ruleSources: () => (USE_MOCKS ? mock<RuleSourceView[]>([]) : request<RuleSourceView[]>("/rule-sources")),
 
   proposals: (status = "PENDING") =>

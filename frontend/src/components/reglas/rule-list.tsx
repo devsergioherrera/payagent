@@ -52,7 +52,7 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
       if (effects.length && !effects.includes(r.effect)) return false;
       if (origin && r.origin !== origin) return false;
       if (!q) return true;
-      return [r.name, r.natural_language, ...r.conditions.map((c) => c.text)].some((t) => t.toLowerCase().includes(q));
+      return [r.name, r.summary, r.natural_language, ...r.conditions.map((c) => c.text)].some((t) => t.toLowerCase().includes(q));
     });
   }, [rules, query, effects, origin, showOff]);
 
@@ -80,7 +80,7 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
           <Input
             value={query}
             onChange={(e) => reset(setQuery)(e.target.value)}
-            placeholder="Buscar por nombre, texto o condición"
+            placeholder="Buscar reglas"
             aria-label="Buscar reglas"
             className="h-9 pl-8 text-sm"
           />

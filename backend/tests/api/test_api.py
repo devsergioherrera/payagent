@@ -65,7 +65,7 @@ def cleanup() -> Iterator[dict[str, list[str]]]:
             conn.execute("delete from decision where invoice_id = %s", (inv,))
             conn.execute("delete from operation where invoice_id = %s", (inv,))
             conn.execute("delete from invoice where id = %s", (inv,))
-        for rule in ids["rule"]:
+        for rule in reversed(ids["rule"]):
             conn.execute("delete from decision_rule_hit where rule_id = %s", (rule,))
             conn.execute("delete from rule_condition where rule_id = %s", (rule,))
             conn.execute("delete from rule where id = %s", (rule,))
@@ -317,3 +317,23 @@ def test_vendors_page_and_invoice_pagination(client: TestClient, directory):
     assert one["tax_id"] == f"test-{tag}" and len(one["purchase_orders"]) == 3
     assert client.get(f"/vendors/{uuid.uuid4()}").status_code == 404
     assert client.get("/vendors/not-a-uuid").status_code == 404
+
+
+def test_rules_activate_replace_and_summary(client: TestClient, cleanup):
+    draft = {
+        "name": "test-regla-v1", "natural_language": "montos altos", "effect": "ESCALATE", "overridable": True,
+        "conditions": [{"source": "invoice", "column": "amount_usd", "operator": "GT", "value": 5000, "text": ""}],
+    }
+    old = client.post("/rules", json=draft).json()
+    cleanup["rule"].append(old["id"])
+    assert old["summary"] == "Pide tu aprobación cuando el monto supere USD 5.000"
+    assert client.post(f"/rules/{old['id']}/deactivate").json()["active"] is False
+    assert client.post(f"/rules/{old['id']}/activate").json()["active"] is True
+    new_draft = {**draft, "name": "test-regla-v2", "replaces_rule_id": old["id"],
+                 "conditions": [{**draft["conditions"][0], "value": 8000}]}
+    new = client.post("/rules", json=new_draft).json()
+    cleanup["rule"].append(new["id"])
+    assert new["active"] and "8.000" in new["summary"]
+    assert next(r for r in client.get("/rules").json() if r["id"] == old["id"])["active"] is False
+    assert client.post(f"/rules/{uuid.uuid4()}/activate").status_code == 404
+    assert client.post("/rules", json={**draft, "replaces_rule_id": str(uuid.uuid4())}).status_code == 404

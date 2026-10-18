@@ -133,12 +133,14 @@ export const rules: RuleView[] = [
     effect: "ESCALATE", overridable: true, origin: "HUMAN", proposed_by: "Sergio", proposed_at: "2026-10-17T18:00:00Z",
     approved_by: "Sergio", approved_at: "2026-10-17T18:00:00Z", active: true, times_fired: 4,
     conditions: [{ source: "invoice", column: "amount_usd", operator: "GT", value: 5000, text: "Factura · monto en USD > 5.000" }],
+    summary: "Pide tu aprobación cuando el monto supere USD 5.000",
   },
   {
     id: "r2", name: "Proveedor bloqueado", natural_language: "Nunca le pagues a un proveedor bloqueado.",
     effect: "HOLD", overridable: false, origin: "HUMAN", proposed_by: "Sergio", proposed_at: "2026-10-17T18:00:00Z",
     approved_by: "Sergio", approved_at: "2026-10-17T18:00:00Z", active: true, times_fired: 1,
     conditions: [{ source: "vendor", column: "status", operator: "EQ", value: "BLOCKED", text: "Proveedor · estado = bloqueado" }],
+    summary: "Frena el pago cuando el proveedor esté bloqueado",
   },
   {
     id: "r16", name: "Northwind sin orden de compra", natural_language: "Aprobaste 3 de 3 facturas de Northwind sin orden de compra.",
@@ -148,6 +150,7 @@ export const rules: RuleView[] = [
       { source: "vendor", column: "tax_id", operator: "EQ", value: "841234567", text: "Proveedor · NIT = 841234567" },
       { source: "po_check", column: "orden_encontrada", operator: "EQ", value: false, text: "Cruce con la orden · orden encontrada = no" },
     ],
+    summary: "Deja pasar el pago cuando el proveedor sea Northwind y la factura no tenga orden de compra",
   },
 ];
 
@@ -159,7 +162,7 @@ const extra = (
 ): RuleView => ({
   id, name, natural_language, effect, overridable: effect !== "HOLD", origin,
   proposed_by: origin === "AGENT" ? "Agente" : "Sergio", proposed_at: "2026-10-16T15:00:00Z",
-  approved_by: "Sergio", approved_at: "2026-10-16T15:20:00Z", active: true, times_fired, conditions, ...more,
+  approved_by: "Sergio", approved_at: "2026-10-16T15:20:00Z", active: true, times_fired, conditions, summary: "", ...more,
 });
 
 const moreRules: RuleView[] = [
@@ -207,6 +210,22 @@ const moreRules: RuleView[] = [
     [cond("vendor", "tax_id", "EQ", "000000000", "Proveedor · NIT = 000000000")], { active: false }),
 ];
 rules.push(...moreRules);
+
+const LEAD = { ESCALATE: "Pide tu aprobación", HOLD: "Frena el pago", ALLOW: "Deja pasar el pago" } as const;
+for (const r of rules) {
+  r.summary ||= `${LEAD[r.effect]} cuando ${r.conditions.map((c) => c.text.split(" · ").pop()!.replace(/^./, (m) => m.toLowerCase())).join(" y ")}`;
+}
+
+// Mock of POST /rules/{id}/revise: raises the first money threshold to 8.000, enough to show before and after.
+export const revised = (id: string, instruction: string): RuleView => {
+  const rule = rules.find((r) => r.id === id) ?? rules[0];
+  return {
+    ...rule,
+    natural_language: `${rule.natural_language} (${instruction})`,
+    conditions: rule.conditions.map((c) => (typeof c.value === "number" ? { ...c, value: 8000, text: c.text.replace(/[\d.,]+$/, "8.000") } : c)),
+    summary: rule.summary.replace(/\d[\d.]*/, "8.000"),
+  };
+};
 
 export const proposals: ProposalView[] = [
   {

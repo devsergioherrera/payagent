@@ -31,8 +31,8 @@ from payagent.api.schemas import (
     VendorView,
 )
 from payagent.domain.invoice import normalize_id
-from payagent.app.rule_text import condition_text
-from payagent.domain.rule import ColumnRef, Condition, Operator
+from payagent.app.rule_text import condition_text, rule_summary
+from payagent.domain.rule import ColumnRef, Condition, Effect, Operator
 from payagent.adapters.postgres.catalog import source_columns
 
 
@@ -309,6 +309,7 @@ class ApiQueries:
                 {"id": rule_id},
             )
             conds: dict[str, list[ConditionView]] = {}
+            raw_conds: dict[str, list[Condition]] = {}
             for c in _rows(
                 conn,
                 """select c.rule_id::text, c.source, c.column_name, c.operator, c.value, c.value_source, c.value_column
@@ -322,6 +323,7 @@ class ApiQueries:
                     value=c["value"],
                     value_ref=ColumnRef(c["value_source"], c["value_column"]) if c["value_source"] else None,
                 )
+                raw_conds.setdefault(c["rule_id"], []).append(cond)
                 conds.setdefault(c["rule_id"], []).append(ConditionView(
                     source=c["source"], column=c["column_name"], operator=c["operator"], value=c["value"],
                     value_source=c["value_source"], value_column=c["value_column"],
@@ -333,6 +335,7 @@ class ApiQueries:
                 overridable=r["overridable"], conditions=conds.get(r["id"], []), origin=r["origin"],
                 proposed_by=r["proposed_by"], proposed_at=r["proposed_at"], approved_by=r["approved_by"],
                 approved_at=r["approved_at"], active=r["active"], times_fired=r["times_fired"],
+                summary=rule_summary(Effect(r["effect"]), raw_conds.get(r["id"], [])),
             )
             for r in rules
         ]
