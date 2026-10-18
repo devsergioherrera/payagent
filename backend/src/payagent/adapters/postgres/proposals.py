@@ -124,7 +124,8 @@ class PostgresProposals:
             rows = conn.execute(
                 f"""
                 select id, name, natural_language, effect, overridable, conditions, rationale,
-                       evidence_invoice_ids, status, created_at
+                       evidence_invoice_ids, status, created_at,
+                       (select o.detail from operation o where o.id = rule_proposal.operation_id)
                 from rule_proposal {where} order by created_at desc, name
                 """,
                 params,
@@ -144,6 +145,7 @@ class PostgresProposals:
                 id=str(r[0]), name=r[1], natural_language=r[2], effect=Effect(r[3]), overridable=r[4],
                 conditions=conditions_from_json(r[5]), rationale=r[6],
                 evidence=[summaries[str(e)] for e in r[7] if str(e) in summaries], status=r[8], created_at=r[9],
+                trace=r[10] or [],
             )
             for r in rows
         ]

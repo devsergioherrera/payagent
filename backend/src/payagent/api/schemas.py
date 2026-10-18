@@ -127,6 +127,12 @@ class TimelineStep(BaseModel):
     at: datetime
 
 
+class LearnedRule(BaseModel):
+    id: str
+    name: str
+    approved_at: datetime
+
+
 class InvoiceDetail(BaseModel):
     summary: InvoiceSummary
     vendor_id: str | None
@@ -138,6 +144,7 @@ class InvoiceDetail(BaseModel):
     cost: OperationCost | None
     file_url: str
     error: str | None
+    learned_rule: LearnedRule | None = None  # an agent-learned ALLOW rule that overrode an escalation on this paid invoice
 
 
 class ResolveRequest(BaseModel):
@@ -214,6 +221,11 @@ class RuleSourceView(BaseModel):
     columns: list[ColumnView]
 
 
+class TraceStep(BaseModel):
+    label: str
+    detail: str | None = None
+
+
 class ProposalView(BaseModel):
     id: str
     draft: RuleDraft
@@ -221,12 +233,14 @@ class ProposalView(BaseModel):
     evidence: list[InvoiceSummary]
     status: Literal["PENDING", "ACCEPTED", "REJECTED"]
     created_at: datetime
+    trace: list[TraceStep] = []  # how the run that created it reached it
 
 
 class ProposalRun(BaseModel):
     operation_id: str
     reviewed: int
     created: list[ProposalView]
+    trace: list[TraceStep] = []
 
 
 class PurchaseOrderView(BaseModel):
@@ -304,7 +318,7 @@ class Costs(BaseModel):
 
 class ActivityItem(BaseModel):
     id: str
-    kind: Literal["PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "PROPOSAL", "EMAIL_FAILED"]
+    kind: Literal["PAID", "WAITING", "HELD", "APPROVED", "REJECTED", "LEARNED", "EMAIL_FAILED"]
     title: str
     detail: str
     invoice_id: str | None = None

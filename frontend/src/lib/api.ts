@@ -36,7 +36,7 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-const mock = <T,>(value: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(value)), 150));
+const mock = <T,>(value: T, ms = 150): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(value)), ms));
 
 export interface InvoiceFilters {
   state?: InvoiceState; q?: string; vendor_id?: string; from?: string; to?: string;
@@ -108,7 +108,7 @@ export const api = {
     USE_MOCKS ? mock<ProposalView[]>(mocks.proposals) : request<ProposalView[]>(`/proposals?status=${status}`),
   runProposals: () =>
     USE_MOCKS
-      ? mock<ProposalRun>({ operation_id: "o2", reviewed: 3, created: mocks.proposals })
+      ? mock<ProposalRun>({ operation_id: "o2", reviewed: 4, created: mocks.proposals, trace: mocks.proposalTrace }, 2200)
       : request<ProposalRun>("/proposals/run", { method: "POST" }),
   acceptProposal: (id: string) =>
     USE_MOCKS ? mock<RuleView>(mocks.rules[2]) : request<RuleView>(`/proposals/${id}/accept`, { method: "POST" }),

@@ -13,6 +13,7 @@ from payagent.app.propose_rules import (
     StoredProposal,
     find_patterns,
     shared_rules,
+    could_complete_pattern,
 )
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator, Rule
 from payagent.ports.repositories import ColumnInfo, ResolvedCase, SourceInfo
@@ -46,8 +47,9 @@ class FakeOps:
             raise RuntimeError('duplicate key value violates unique constraint "operation_one_running_proposal"')
         return "op-1"
 
-    def finish(self, operation_id, error=None):
+    def finish(self, operation_id, error=None, detail=None):
         self.finished.append((operation_id, error))
+        self.detail = detail
 
 
 class FakeFeedback:
@@ -260,3 +262,43 @@ def test_accept_and_reject_flow():
         svc.accept("p1", "Sergio")
     with pytest.raises(ProposalNotPending):
         svc.reject("p1", "Sergio")
+
+
+def test_run_trace_is_built_from_the_real_run():
+    svc, _, _, _ = service(THREE, [call()])
+    run = svc.run()
+    labels = [t.label for t in run.trace]
+    assert labels[0] == "Revisé 3 decisiones tuyas" and run.trace[0].detail == "3 aprobadas, 0 rechazadas"
+    assert run.trace[1].label == "Encontré un patrón"
+    assert run.trace[1].detail == f"{NORTHWIND}, aprobadas 3 de 3, todas con «Sin orden de compra»"
+    assert "Comprobé que no anula ningún Frenar ni el umbral de aprobación" in labels
+    assert run.trace[-1].label == "Propuesta lista" and run.trace[-1].detail == "Northwind sin orden"
+    assert svc.operations.detail == [{"label": t.label, "detail": t.detail} for t in run.trace]
+
+
+def test_trace_without_pattern_says_so():
+    svc, _, _, _ = service(THREE[:2], [])
+    assert [t.label for t in svc.run().trace] == ["Revisé 2 decisiones tuyas", "No encontré un patrón todavía"]
+
+
+def test_trace_counts_discarded_proposals():
+    svc, _, _, _ = service(THREE, [call(conditions=[])])
+    run = svc.run()
+    assert run.created == [] and "Descarté 1 propuesta" in [t.label for t in run.trace]
+
+
+def test_could_complete_pattern_needs_two_earlier_matching_resolutions():
+    assert could_complete_pattern(THREE, "inv-3")
+    assert not could_complete_pattern(THREE[:2], "inv-2")
+    assert not could_complete_pattern(THREE + [case(4, verdict="REJECTED")], "inv-4")
+    assert not could_complete_pattern(THREE, "ghost")
+
+
+def test_learn_from_runs_only_when_a_pattern_is_in_reach():
+    svc, _, _, client = service(THREE[:2], [call()])
+    assert svc.learn_from("inv-2") is None and client.prompts == []
+    svc, _, _, client = service(THREE, [call()])
+    run = svc.learn_from("inv-3")
+    assert run is not None and len(run.created) == 1
+    busy, _, _, _ = service(THREE, [call()], running=True)
+    assert busy.learn_from("inv-3") is None

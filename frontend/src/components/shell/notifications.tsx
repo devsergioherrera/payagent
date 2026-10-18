@@ -20,7 +20,7 @@ export const ACTIVITY_KIND: Record<ActivityKind, { icon: LucideIcon; tone: strin
   HELD: STATE.HELD,
   APPROVED: STATE.APPROVED,
   REJECTED: STATE.REJECTED,
-  PROPOSAL: { icon: Lightbulb, tone: "bg-brand-soft text-brand" },
+  LEARNED: { icon: Lightbulb, tone: "bg-brand-soft text-brand" },
   EMAIL_FAILED: { icon: MailWarning, tone: "bg-hold-soft text-hold" },
 };
 

@@ -2,7 +2,7 @@
 import type {
   ActivityItem, Costs, Hit, InvoiceDetail, InvoiceSummary, OperationRow, Page, Policy, ProposalView, PurchaseOrderDetail,
   PurchaseOrderRow, RuleView,
-  Summary, VendorView,
+  Summary, TraceStep, VendorView,
 } from "./api-types";
 
 export const summary: Summary = {
@@ -71,6 +71,7 @@ export const invoiceDetail: InvoiceDetail = {
   cost: { cost_usd: 0.0011, duration_ms: 2300, input_tokens: 2140, output_tokens: 310 },
   file_url: "/mock/factura-2043.svg",
   error: null,
+  learned_rule: null,
 };
 
 // Hard case: unregistered vendor, unreadable amount and due date, and a budget hold.
@@ -110,6 +111,7 @@ export const invoiceDetailHold: InvoiceDetail = {
   cost: { cost_usd: 0.0018, duration_ms: 3900, input_tokens: 3010, output_tokens: 420 },
   file_url: "/mock/factura-2040.txt",
   error: null,
+  learned_rule: null,
 };
 
 // A second final hold, to open from the list.
@@ -124,6 +126,7 @@ export const invoiceDetailPay: InvoiceDetail = {
   summary: invoices[3],
   explanation: "La factura de Logística del Bajío cumple todas las reglas: proveedor registrado, orden de compra vigente y monto dentro del límite. El agente la pagó sin intervención.",
   hits: invoiceDetail.hits.map((h) => ({ ...h, result: h.result === "FIRED" ? "PASSED" as const : h.result })),
+  learned_rule: { id: "r16", name: "Northwind sin orden de compra", approved_at: "2026-10-18T09:20:00Z" },
   timeline: [
     { label: "Factura recibida", detail: "Carga manual", at: "2026-10-17T14:12:00Z" },
     { label: "Datos extraídos", detail: null, at: "2026-10-17T14:12:04Z" },
@@ -283,9 +286,17 @@ export const revised = (id: string, instruction: string): RuleView => {
   };
 };
 
+export const proposalTrace: TraceStep[] = [
+  { label: "Revisé 4 decisiones tuyas", detail: "4 aprobadas, 0 rechazadas" },
+  { label: "Encontré un patrón", detail: "Northwind Software Inc., aprobadas 3 de 3, todas con «Sin orden de compra»" },
+  { label: "Comprobé que no anula ningún Frenar ni el umbral de aprobación", detail: "Una regla de permitir solo levanta escalaciones anulables" },
+  { label: "Propuesta lista", detail: "Northwind sin orden de compra" },
+];
+
 export const proposals: ProposalView[] = [
   {
-    id: "p1", status: "PENDING", created_at: "2026-10-17T22:05:00Z", evidence: [invoices[1]],
+    id: "p1", status: "PENDING", created_at: "2026-10-17T22:05:00Z", evidence: [invoices[1], invoices[8], { ...invoices[8], id: "i-2036", invoice_number: "NW-8771", state: "APPROVED" }],
+    trace: proposalTrace,
     rationale: "Aprobaste 3 de 3 facturas de Northwind Software que escalaron por no tener orden de compra.",
     draft: { ...rules[2], name: "Northwind sin orden de compra" },
   },
@@ -412,7 +423,7 @@ export const costs: Costs = {
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 export const activity = (): ActivityItem[] => [
   { id: "d1", kind: "WAITING", title: "Espera tu decisión: Northwind Software", detail: "4,200.00 USD", invoice_id: "i-2043", at: minutesAgo(2) },
-  { id: "p1", kind: "PROPOSAL", title: "Regla propuesta", detail: "Northwind sin orden de compra", proposal_id: "p1", at: minutesAgo(18) },
+  { id: "p1", kind: "LEARNED", title: "El agente aprendió algo", detail: "Northwind sin orden de compra", proposal_id: "p1", at: minutesAgo(18) },
   { id: "d2", kind: "HELD", title: "Frenada: Servicios Cloud Andinos", detail: "12,900.00 USD", invoice_id: "i-2041", at: minutesAgo(55) },
   { id: "n1", kind: "EMAIL_FAILED", title: "No se pudo enviar un correo", detail: "A compras@andinos.example", invoice_id: "i-2041", at: minutesAgo(56) },
   { id: "d3", kind: "PAID", title: "Pagada: Papelería Central", detail: "320.50 USD", invoice_id: "i-2040", at: minutesAgo(190) },

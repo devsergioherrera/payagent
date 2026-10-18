@@ -76,7 +76,7 @@ function Reglas() {
         {rules.error && !rules.data ? (
           <p className="text-sm text-hold">No se pudieron cargar las reglas.</p>
         ) : rules.data ? (
-          <RuleList key={onlyEffects.key} rules={rules.data} onChange={refresh} initialEffects={onlyEffects.effects} />
+          <RuleList key={onlyEffects.key} rules={rules.data} onChange={refresh} initialEffects={onlyEffects.effects} focusRuleId={params.get("rule")} />
         ) : (
           <RulesSkeleton />
         )}

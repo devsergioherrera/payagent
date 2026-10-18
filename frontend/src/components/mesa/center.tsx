@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mascot, type MascotState } from "@/components/mascot/mascot";
 import { api } from "@/lib/api";
-import type { InvoiceState, InvoiceSummary, Summary } from "@/lib/api-types";
+import type { InvoiceState, InvoiceSummary, ProposalView, Summary } from "@/lib/api-types";
 import { usePolling } from "@/hooks/use-polling";
 import { ago, greeting, isProcessing } from "@/lib/format";
 import { STATE } from "@/lib/state";
@@ -13,6 +13,7 @@ import { ACTIVITY_KIND } from "@/components/shell/notifications";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Composer } from "./composer";
+import { AgentMessage } from "./agent-message";
 import { Conversation, type Message } from "./conversation";
 import { LatestCard } from "./latest-card";
 
@@ -48,7 +49,17 @@ function useMascotState(latest: InvoiceSummary | undefined, busy: boolean): Masc
   return reveal ?? "idle";
 }
 
-function Home({ summary, latest, mascot }: { summary: Summary | null; latest: InvoiceSummary | undefined; mascot: MascotState }) {
+interface HomeProps {
+  summary: Summary | null;
+  latest: InvoiceSummary | undefined;
+  mascot: MascotState;
+  proposal: ProposalView | undefined;
+  onThinking: (thinking: boolean) => void;
+  onLearned: () => void;
+  onResolved: () => void;
+}
+
+function Home({ summary, latest, mascot, proposal, onThinking, onLearned, onResolved }: HomeProps) {
   if (!summary) {
     return (
       <div className="space-y-5">
@@ -73,15 +84,16 @@ function Home({ summary, latest, mascot }: { summary: Summary | null; latest: In
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={cn("flex flex-wrap items-center gap-2", proposal && "hidden")}>
         <Chip label="Pagadas" value={summary.paid} className={STATE.PAID.tone} />
         <Chip label="Esperan tu decisión" value={summary.waiting} className={STATE.WAITING.tone} />
         <Chip label="Frenadas" value={summary.held} className={STATE.HELD.tone} />
         <Chip label="Rechazadas" value={summary.rejected} className={STATE.REJECTED.tone} />
         <span className="ml-1 text-[13px] font-medium text-brand">Autonomía {Math.round(summary.autonomy_pct)} %</span>
       </div>
-      {latest && <LatestCard invoice={latest} />}
-      <RecentActivity />
+      {proposal && <AgentMessage key={proposal.id} proposal={proposal} onThinking={onThinking} onLearned={onLearned} onResolved={onResolved} />}
+      {latest && !proposal && <LatestCard invoice={latest} />}
+      {!proposal && <RecentActivity />}
     </div>
   );
 }
@@ -122,8 +134,21 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
   const end = useRef<HTMLDivElement>(null);
   const latest = invoices ? [...invoices].sort((a, b) => b.received_at.localeCompare(a.received_at))[0] : undefined;
 
-  const mascot = useMascotState(latest, waiting);
+  // The agent speaks first when it has learned something; a dismissed proposal stays hidden until the poll catches up.
+  const proposals = usePolling(() => api.proposals(), 3000);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [typing, setTyping] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const proposal = proposals.data?.find((p) => p.status === "PENDING" && !dismissed.includes(p.id));
+  const base = useMascotState(latest, waiting || typing);
+  const mascot = celebrating ? "paid" : base;
   const home = messages.length === 0;
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const t = setTimeout(() => setCelebrating(false), 6000);
+    return () => clearTimeout(t);
+  }, [celebrating]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -146,7 +171,11 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
     <section className={cn("flex min-h-0 flex-col", home && "justify-center", className)}>
       <div className={cn("min-h-0 overflow-y-auto px-4", !home && "flex-1")}>
         <div className={cn("mx-auto w-full max-w-2xl", home ? "pb-5 pt-6" : "py-8")}>
-          {home ? <Home summary={summary} latest={latest} mascot={mascot} /> : <Conversation messages={messages} waiting={waiting} />}
+          {home ? <Home
+              summary={summary} latest={latest} mascot={mascot} proposal={proposal}
+              onThinking={setTyping} onLearned={() => setCelebrating(true)}
+              onResolved={() => { if (proposal) setDismissed((d) => [...d, proposal.id]); proposals.refresh(); }}
+            /> : <Conversation messages={messages} waiting={waiting} />}
           <div ref={end} />
         </div>
       </div>

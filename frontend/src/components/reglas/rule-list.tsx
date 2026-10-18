@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Eye, EyeOff, Search, SearchX, User } from "lucide-react";
 import type { Effect, RuleView } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
@@ -35,14 +35,24 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-export function RuleList({ rules, onChange, initialEffects = [] }: { rules: RuleView[]; onChange: () => void; initialEffects?: Effect[] }) {
+interface ListProps { rules: RuleView[]; onChange: () => void; initialEffects?: Effect[]; focusRuleId?: string | null }
+
+export function RuleList({ rules, onChange, initialEffects = [], focusRuleId = null }: ListProps) {
+  const target = focusRuleId ? rules.find((r) => r.id === focusRuleId) : undefined;
   const [query, setQuery] = useState("");
   const [effects, setEffects] = useState<Effect[]>(initialEffects);
   const [origin, setOrigin] = useState<RuleView["origin"] | null>(null);
-  const [showOff, setShowOff] = useState(false);
+  const [showOff, setShowOff] = useState(target ? !target.active : false);
   const [group, setGroup] = useState("all");
-  const [limit, setLimit] = useState(PAGE);
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [limit, setLimit] = useState(target ? Math.max(PAGE, rules.length) : PAGE);
+  const [focusId, setFocusId] = useState<string | null>(target?.id ?? null);
+
+  // Arriving from an invoice: the rule is highlighted for a moment, like when it is shown from a proposal.
+  useEffect(() => {
+    if (!target) return;
+    const t = window.setTimeout(() => setFocusId(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [target]);
 
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setLimit(PAGE); };
 

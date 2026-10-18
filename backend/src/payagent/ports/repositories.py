@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from payagent.domain.decision import Decision
 from payagent.domain.facts import Facts
@@ -17,8 +17,8 @@ InvoiceStatus = Literal["RECEIVED", "EXTRACTING", "EVALUATING", "DECIDED", "FAIL
 class Operations(Protocol):
     def start(self, type: OperationType, invoice_id: str | None = None) -> str: ...
 
-    def finish(self, operation_id: str, error: str | None = None) -> None:
-        """DONE when error is None, FAILED otherwise."""
+    def finish(self, operation_id: str, error: str | None = None, detail: Any = None) -> None:
+        """DONE when error is None, FAILED otherwise. `detail` is any JSON the UI shows later (e.g. a trace)."""
         ...
 
 
