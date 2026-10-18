@@ -2,6 +2,10 @@
 
 Payments agent for the Blinka challenge. Spec: [docs/SPEC.md](docs/SPEC.md). Layout and deployment details: [docs/STRUCTURE.md](docs/STRUCTURE.md).
 
+## Resuming work
+
+Read [docs/BITACORA.md](docs/BITACORA.md) first: current state, what is in progress and what is pending. Update it after every merge or decision.
+
 ## Code navigation
 
 This repo is indexed by CodeGraph (`.codegraph/`). Use it before grep or reading files: the `codegraph_explore` MCP tool, or `codegraph explore "<symbols or question>"` in the shell. Every agent working here (Claude, OpenCode) does the same.
