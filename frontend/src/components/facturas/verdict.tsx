@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, CircleCheck, OctagonX, ShieldAlert } from "lucide-react";
-import { OUTCOME_LABEL, OUTCOME_STYLE } from "@/lib/format";
+import { dayTime, OUTCOME_LABEL, OUTCOME_STYLE } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Stepper } from "./stepper";
 import type { Hit, InvoiceDetail, Outcome } from "@/lib/api-types";
@@ -15,28 +15,39 @@ export function decidingHit(hits: Hit[], outcome: Outcome | null): Hit | undefin
 }
 
 export function Verdict({ invoice, processing }: { invoice: InvoiceDetail; processing: boolean }) {
-  const { summary, hits, explanation } = invoice;
+  const { summary, hits, explanation, approval } = invoice;
   const outcome = summary.outcome;
   const rule = decidingHit(hits, outcome);
-  const Icon = outcome ? ICON[outcome] : Bot;
+  // The header shows where the invoice ended up: a human resolution replaces "Escalada".
+  const approved = approval?.verdict === "APPROVED";
+  const pending = outcome === "ESCALATE" && summary.decision_status === "PENDING_HUMAN";
+  const Icon = approval ? (approved ? CircleCheck : OctagonX) : outcome ? ICON[outcome] : Bot;
+  const pillStyle = approval ? OUTCOME_STYLE[approved ? "PAY" : "HOLD"] : outcome ? OUTCOME_STYLE[outcome] : "bg-brand-soft text-brand";
+  const pillText = approval ? `${approved ? "Aprobada" : "Rechazada"} por ti` : pending ? `${OUTCOME_LABEL.ESCALATE} · espera tu decisión` : outcome ? OUTCOME_LABEL[outcome] : "Procesando";
   const title = processing || !outcome
     ? "El agente está leyendo y evaluando esta factura"
     : outcome === "PAY" ? "Todas las reglas se cumplieron" : (rule?.rule_name ?? summary.headline ?? "Sin regla decisiva");
   return (
     <section className="grid gap-4 rounded-2xl border bg-card p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:items-center lg:gap-8">
       <div className="min-w-0">
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 sm:flex-nowrap">
           <span className={cn(
             "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
-            outcome ? OUTCOME_STYLE[outcome] : "bg-brand-soft text-brand",
+            pillStyle,
           )}>
             <Icon className={cn("size-4", !outcome && "animate-pulse")} />
-            {outcome ? OUTCOME_LABEL[outcome] : "Procesando"}
+            {pillText}
           </span>
-          <h2 className="min-w-0 truncate text-base font-semibold tracking-tight">{title}</h2>
+          <h2 className="min-w-0 text-base sm:truncate font-semibold tracking-tight">{title}</h2>
         </div>
+        {approval && !processing && (
+          <p className="mt-2 text-sm font-medium">
+            {dayTime(approval.created_at)}
+            {approval.note && <span className="font-normal text-muted-foreground"> · «{approval.note}»</span>}
+          </p>
+        )}
         {explanation && !processing && (
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{explanation}</p>
+          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{explanation}</p>
         )}
       </div>
       {!processing && <Stepper invoice={invoice} />}

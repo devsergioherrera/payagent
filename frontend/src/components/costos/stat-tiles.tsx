@@ -1,6 +1,7 @@
 import type { Costs } from "@/lib/api-types";
+import { money } from "@/lib/format";
 
-export const usd4 = (n: number) => `US$ ${n.toFixed(4)}`;
+export const usd4 = (n: number) => money(n, "USD", 4);
 
 export function StatTiles({ costs }: { costs: Costs }) {
   const tiles = [

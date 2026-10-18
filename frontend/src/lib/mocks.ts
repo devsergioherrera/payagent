@@ -1,6 +1,6 @@
 // Example data with the exact API shapes. Screens build against this until the API is live.
 import type {
-  ActivityItem, Costs, Hit, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
+  ActivityItem, Costs, OperationRow, Hit, InvoiceDetail, InvoiceSummary, Page, ProposalView, PurchaseOrderDetail, PurchaseOrderRow, RuleView,
   Summary, VendorView,
 } from "./api-types";
 
@@ -23,7 +23,7 @@ export const invoices: InvoiceSummary[] = [
   inv({ id: "i-2041", vendor_name: "Tecnologia Paulista Ltda.", invoice_number: "NF-7781", amount: 15000, currency: "BRL", amount_usd: 2700 }),
   inv({ id: "i-2040", vendor_name: "Comercializadora Aurora S.A.S.", invoice_number: "FV-2031", amount: 4800000, currency: "COP", amount_usd: 1200, outcome: "HOLD", decision_status: "FINAL", headline: "Presupuesto del mes" }),
   inv({ id: "i-2039", vendor_name: "Distribuciones Orión S.A.S.", invoice_number: "DO-114", amount: 3560000, currency: "COP", amount_usd: 890, outcome: "HOLD", decision_status: "FINAL", headline: "Proveedor bloqueado" }),
-  inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT" }),
+  inv({ id: "i-2038", vendor_name: "Servicios Cloud Andinos S.A.S.", invoice_number: "FV-2030", amount: 4500, amount_usd: 4500, source: "CHAT", outcome: "ESCALATE", decision_status: "RESOLVED", decided_by: "HUMAN", headline: "Sin orden de compra válida" }),
 ];
 
 type HitRow = [string, string, Hit["effect"], Hit["result"], Hit["observed"], Hit["threshold"]];
@@ -129,7 +129,33 @@ export const invoiceDetailPay: InvoiceDetail = {
   ],
 };
 
+// Escalated, then approved by the user. A history invoice: no read step and no file.
+export const invoiceDetailApproved: InvoiceDetail = {
+  ...invoiceDetail,
+  summary: invoices[7],
+  explanation: "La factura no cita una orden de compra registrada. El resto de las reglas se cumplió y la aprobaste para pagarla.",
+  hits: [
+    hit(["r10", "Sin orden de compra válida", "ESCALATE", "FIRED", { "po_check.orden_encontrada": false }, { "po_check.orden_encontrada": false }]),
+    hit(["r16", "Orden de compra sobregirada", "ESCALATE", "FIRED", { "po_check.orden_encontrada": true, "po_check.saldo_oc_despues_pct": -67 }, { "po_check.orden_encontrada": true, "po_check.saldo_oc_despues_pct": -5 }]),
+    hit(["r8", "Duplicado exacto", "HOLD", "FIRED", { "invoice_checks.duplicada": true }, { "invoice_checks.duplicada": true }]),
+    hit(["r9", "Posible duplicado (30 días)", "ESCALATE", "PASSED", { "invoice_checks.similares_30d": 0 }, { "invoice_checks.similares_30d": 0 }]),
+    hit(["r14", "Fecha fuera de rango", "ESCALATE", "PASSED", { "invoice_checks.dias_emision": 12 }, { "invoice_checks.dias_emision": [0, 90] }]),
+    hit(["r15", "Factura vencida", "ESCALATE", "FIRED", { "invoice_checks.dias_para_vencer": -6 }, { "invoice_checks.dias_para_vencer": 0 }]),
+    hit(["r4", "NIT distinto", "ESCALATE", "FIRED", { "invoice.vendor_tax_id": "9015552221" }, { "vendor.tax_id": "9015552000" }]),
+    hit(["r3", "Cuenta bancaria distinta", "ESCALATE", "PASSED", { "invoice.bank_account": "BCOL55522201" }, { "vendor.bank_account": "BCOL55522201" }]),
+  ],
+  approval: { verdict: "APPROVED", note: "Es la orden de octubre, se cierra la próxima semana.", approver: "Sergio", created_at: "2026-10-09T15:20:00Z" },
+  timeline: [
+    { label: "Factura recibida", detail: "Chat", at: "2026-10-09T15:00:00Z" },
+    { label: "Decisión: Escalada", detail: "Sin orden de compra válida", at: "2026-10-09T15:00:05Z" },
+    { label: "Resolución humana", detail: null, at: "2026-10-09T15:20:00Z" },
+  ],
+  cost: null,
+  file_url: "/mock/none.pdf",
+};
+
 export const invoiceDetails: Record<string, InvoiceDetail> = {
+  "i-2038": invoiceDetailApproved,
   "i-2040": invoiceDetailHold,
   "i-2039": invoiceDetailHold2,
   "i-2042": invoiceDetailPay,
@@ -361,9 +387,11 @@ export const costs: Costs = {
     { type: "RULE_DRAFT", operations: 3, total_usd: 0.0021, avg_usd: 0.0007 },
     { type: "PROPOSE_RULES", operations: 1, total_usd: 0.0028, avg_usd: 0.0028 },
   ],
-  recent: [
-    { id: "o1", type: "PROCESS_INVOICE", status: "DONE", invoice_id: "i-2043", started_at: "2026-10-17T14:12:00Z", cost: { cost_usd: 0.0011, duration_ms: 2300, input_tokens: 2140, output_tokens: 310 } },
-  ],
+  recent: Array.from({ length: 19 }, (_, n): OperationRow => ({
+    id: `o${n + 1}`, type: (["PROCESS_INVOICE", "PROCESS_INVOICE", "RULE_DRAFT", "PROPOSE_RULES"] as const)[n % 4], status: "DONE",
+    invoice_id: n % 4 < 2 ? `i-${2043 - n}` : null, started_at: new Date(Date.UTC(2026, 9, 17, 14, 12) - n * 1_800_000).toISOString(),
+    cost: { cost_usd: 0.0011 + (n % 3) * 0.0004, duration_ms: 2300 + n * 90, input_tokens: 2140, output_tokens: 310 },
+  })),
 };
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();

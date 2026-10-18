@@ -9,9 +9,10 @@ export const OUTCOME_STYLE: Record<Outcome, string> = {
   ESCALATE: "bg-escalate-soft text-escalate",
 };
 
-export function money(amount: number | null | undefined, currency = "USD") {
+// `digits` raises the precision for tiny amounts such as model costs (4 decimals).
+export function money(amount: number | null | undefined, currency = "USD", digits = 2) {
   if (amount == null) return "—";
-  return new Intl.NumberFormat("es-CO", { style: "currency", currency, currencyDisplay: "code", maximumFractionDigits: 2 }).format(amount);
+  return new Intl.NumberFormat("es-CO", { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits > 2 ? digits : undefined, maximumFractionDigits: digits }).format(amount);
 }
 
 export function shortDate(iso: string | null | undefined) {
@@ -61,5 +62,10 @@ export function duration(ms: number) {
 }
 
 export function costUsd(v: number) {
-  return `USD ${new Intl.NumberFormat("es-CO", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v)}`;
+  return money(v, "USD", 4);
+}
+
+// "17 oct" style date used for final states.
+export function dayMonth(iso: string) {
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(new Date(iso)).replace(".", "").replace(" de ", " ");
 }

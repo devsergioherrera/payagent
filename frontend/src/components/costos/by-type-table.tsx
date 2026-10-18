@@ -1,4 +1,5 @@
 import type { CostByType } from "@/lib/api-types";
+import { usd4 } from "./stat-tiles";
 
 export const TYPE_LABEL: Record<string, string> = {
   PROCESS_INVOICE: "Procesar factura",
@@ -17,8 +18,8 @@ export function ByTypeTable({ rows }: { rows: CostByType[] }) {
             <tr className="border-b text-xs text-muted-foreground">
               <th className="px-3 py-2.5 sm:px-4 text-left font-normal">Operación</th>
               <th className="px-3 py-2.5 sm:px-4 text-right font-normal">Cantidad</th>
-              <th className="px-3 py-2.5 sm:px-4 text-right font-normal">Total USD</th>
-              <th className="px-3 py-2.5 sm:px-4 text-right font-normal">Prom. USD</th>
+              <th className="px-3 py-2.5 sm:px-4 text-right font-normal">Total</th>
+              <th className="px-3 py-2.5 sm:px-4 text-right font-normal">Promedio</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -26,8 +27,8 @@ export function ByTypeTable({ rows }: { rows: CostByType[] }) {
               <tr key={r.type}>
                 <td className="whitespace-nowrap px-3 py-3 sm:px-4">{TYPE_LABEL[r.type] ?? r.type}</td>
                 <td className="whitespace-nowrap px-3 py-3 sm:px-4 text-right tabular-nums">{r.operations}</td>
-                <td className="whitespace-nowrap px-3 py-3 sm:px-4 text-right tabular-nums">{r.total_usd.toFixed(4)}</td>
-                <td className="whitespace-nowrap px-3 py-3 sm:px-4 text-right tabular-nums">{r.avg_usd.toFixed(4)}</td>
+                <td className="whitespace-nowrap px-3 py-3 sm:px-4 text-right tabular-nums">{usd4(r.total_usd)}</td>
+                <td className="whitespace-nowrap px-3 py-3 sm:px-4 text-right tabular-nums">{usd4(r.avg_usd)}</td>
               </tr>
             ))}
           </tbody>

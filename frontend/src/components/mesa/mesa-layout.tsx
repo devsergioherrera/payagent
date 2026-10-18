@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { useState } from "react";
 import type { InvoiceSummary, Summary } from "@/lib/api-types";
@@ -36,6 +36,26 @@ function Desktop({ summary, invoices }: Props) {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const toggle = (ref: typeof left) => (ref.current?.isCollapsed() ? ref.current.expand() : ref.current?.collapse());
 
+  // With nothing pending the right rail folds to its icon strip; it reopens by itself when something arrives
+  // unless the user has taken over.
+  const pending = invoices ? invoices.filter((i) => i.decision_status === "PENDING_HUMAN" && i.outcome === "ESCALATE").length : null;
+  const manual = useRef(false);
+  const auto = useRef(false);
+  useEffect(() => {
+    if (pending === null || manual.current) return;
+    if (pending === 0 && !right.current?.isCollapsed()) {
+      auto.current = true;
+      right.current?.collapse();
+    } else if (pending > 0 && auto.current) {
+      auto.current = false;
+      right.current?.expand();
+    }
+  }, [pending, right]);
+  const toggleRight = () => {
+    manual.current = true;
+    toggle(right);
+  };
+
   return (
     <Group orientation="horizontal" id="payagent-mesa" defaultLayout={layout.defaultLayout} onLayoutChanged={layout.onLayoutChanged} style={{ height: "calc(100dvh - 3.5rem)" }}>
       <Panel id="invoices" panelRef={left} defaultSize="300px" {...RAIL} onResize={(s) => setLeftCollapsed(s.inPixels < 100)}>
@@ -47,7 +67,7 @@ function Desktop({ summary, invoices }: Props) {
       </Panel>
       <Handle />
       <Panel id="pending" panelRef={right} defaultSize="320px" {...RAIL} onResize={(s) => setRightCollapsed(s.inPixels < 100)}>
-        <PendingRail invoices={invoices} collapsed={rightCollapsed} onToggle={() => toggle(right)} className="h-full" />
+        <PendingRail invoices={invoices} collapsed={rightCollapsed} onToggle={toggleRight} className="h-full" />
       </Panel>
     </Group>
   );

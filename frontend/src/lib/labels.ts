@@ -1,5 +1,6 @@
 // Plain-Spanish wording for rule hits. COLUMN_LABEL mirrors backend/src/payagent/app/rule_text.py.
 import type { Hit, Value } from "./api-types";
+import { money } from "./format";
 
 export const COLUMN_LABEL: Record<string, string> = {
   amount_usd: "monto en USD", amount: "monto", currency: "moneda", vendor_id: "proveedor registrado",
@@ -36,7 +37,61 @@ function show(key: string, v: Value | undefined): string {
   return VALUE_LABEL[v] ?? v;
 }
 
+const days = (n: number) => `${Math.abs(n)} ${Math.abs(n) === 1 ? "día" : "días"}`;
+
+// Business sentences for the seed columns. Returns null for columns without one.
+function known(hit: Hit, key: string): string | null {
+  const obs = hit.observed[key];
+  const thr = hit.threshold[key] ?? Object.values(hit.threshold)[0];
+  const n = typeof obs === "number" ? obs : null;
+  const limit = typeof thr === "number" ? thr : null;
+  switch (column(key)) {
+    case "orden_encontrada":
+      return obs ? "La factura cita una orden de compra registrada" : "La factura no cita una orden de compra registrada";
+    case "saldo_oc_despues_pct":
+      if (n === null) return null;
+      return n < 0 ? `La orden de compra quedaría sobregirada ${number(Math.abs(n))} %` : `A la orden de compra le quedaría ${number(n)} % libre`;
+    case "desviacion_pct":
+      return n === null ? null : `El monto difiere ${number(n)} % de la orden de compra${limit !== null ? ` (tolerancia ${number(limit)} %)` : ""}`;
+    case "moneda_coincide":
+      return obs ? "La moneda de la factura es la de la orden de compra" : "La moneda de la factura no es la de la orden de compra";
+    case "proveedor_coincide":
+      return obs ? "La orden de compra es de este proveedor" : "La orden de compra es de otro proveedor";
+    case "duplicada":
+      return obs ? "Ya llegó una factura con este número" : "No hay otra factura con este número";
+    case "similares_30d":
+      if (n === null) return null;
+      return n > 0 ? `Hay ${n} ${n === 1 ? "factura" : "facturas"} del mismo proveedor y monto en los últimos 30 días` : "No hay cobros iguales en los últimos 30 días";
+    case "amount_usd":
+      if (n === null || limit === null) return null;
+      return n === limit ? `El monto, ${money(n)}, es igual al límite de ${money(limit)}` : n > limit ? `El monto, ${money(n)}, supera ${money(limit)}` : `El monto, ${money(n)}, no supera ${money(limit)}`;
+    case "saldo_despues_usd":
+      if (n === null) return null;
+      return n < 0 ? `Pagar dejaría el presupuesto del mes ${money(Math.abs(n))} por debajo de cero` : `Después de pagar quedarían ${money(n)} del presupuesto del mes`;
+    case "dias_emision":
+      if (n === null) return null;
+      return n < 0 ? `La fecha de emisión es futura, en ${days(n)}` : Array.isArray(thr) && n > Number(thr[1]) ? `Emitida hace ${days(n)}, más de los ${thr[1]} permitidos` : n === 0 ? "Emitida hoy" : `Emitida hace ${days(n)}`;
+    case "dias_para_vencer":
+      if (n === null) return null;
+      return n < 0 ? `Venció hace ${days(n)}` : n === 0 ? "Vence hoy" : `Vence en ${days(n)}`;
+    case "status":
+      return obs === "BLOCKED" ? "El proveedor está bloqueado" : obs === "ALLOWED" ? "El proveedor está habilitado" : null;
+    case "bank_account":
+    case "vendor_tax_id":
+    case "tax_id": {
+      const registered = Object.entries(hit.threshold).find(([k]) => column(k) === column(key) || column(k) === "tax_id" || column(k) === "bank_account")?.[1];
+      const what = column(key) === "bank_account" ? "La cuenta bancaria" : "El NIT";
+      if (typeof registered !== "string") return null;
+      return obs === registered ? `${what} coincide con el del proveedor` : `${what} de la factura es distinto al registrado del proveedor`;
+    }
+    default:
+      return null;
+  }
+}
+
 function sentence(hit: Hit, key: string): string {
+  const plain = known(hit, key);
+  if (plain) return plain;
   const obs = hit.observed[key];
   const thr = hit.threshold[key] ?? Object.values(hit.threshold)[0];
   const name = cap(label(key));
@@ -68,7 +123,9 @@ export function hitSentence(hit: Hit): string {
     const n = Number(hit.observed[only]);
     return n === 0 ? "No falta ningún dato" : `Faltan ${n} ${n === 1 ? "dato obligatorio" : "datos obligatorios"}`;
   }
-  return keys.map((k) => sentence(hit, k)).join(" · ");
+  // Guard conditions that merely held (e.g. "orden encontrada: sí") add nothing next to the real comparison.
+  const shown = keys.length > 1 ? keys.filter((k) => !(column(k) === "orden_encontrada" && hit.observed[k] === true)) : keys;
+  return (shown.length ? shown : keys).map((k) => sentence(hit, k)).join(" · ");
 }
 
 export function notApplicableReason(hit: Hit): string {

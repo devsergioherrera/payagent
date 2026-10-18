@@ -26,10 +26,10 @@ function EmailStatus({ summary }: { summary: Summary | null }) {
   if (!summary) return <Skeleton className="h-4 w-44" />;
   const on = summary.email_connected;
   return (
-    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+    <p className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
       <span className={cn("size-1.5 rounded-full", on ? "bg-pay" : "bg-muted-foreground/40")} />
       {on
-        ? `Correo conectado${summary.email_checked_at ? ` · revisado hace ${ago(summary.email_checked_at, now)}` : ""}`
+        ? `Correo${summary.email_checked_at ? ` · hace ${ago(summary.email_checked_at, now)}` : ""}`
         : "Correo sin conexión"}
     </p>
   );
