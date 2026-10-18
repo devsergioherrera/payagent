@@ -17,7 +17,13 @@ def test_seed_style_summaries():
         "Pide tu aprobación cuando la cuenta bancaria no sea la del proveedor")
     assert rule_summary(Effect.ESCALATE, [
         c("po_check", "orden_encontrada", O.EQ, True), c("po_check", "desviacion_pct", O.GT, 5)]) == (
-        "Pide tu aprobación cuando la factura tenga una orden de compra y el monto se desvíe más de 5 % de la orden")
+        "Pide tu aprobación cuando el monto se desvíe más de 5 % de la orden")
+    assert rule_summary(Effect.ESCALATE, [
+        c("po_check", "orden_encontrada", O.EQ, True), c("po_check", "saldo_oc_despues_pct", O.LT, -5)]) == (
+        "Pide tu aprobación cuando la factura sobregire la orden de compra más de 5 %")
+    # A lone guard is the whole rule, so it stays.
+    assert rule_summary(Effect.HOLD, [c("po_check", "orden_encontrada", O.EQ, True)]) == (
+        "Frena el pago cuando la factura tenga una orden de compra")
 
 
 def test_generic_fallback_names_the_column():

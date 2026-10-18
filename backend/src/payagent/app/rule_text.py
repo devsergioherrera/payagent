@@ -113,6 +113,8 @@ def _specific(cond: Condition) -> str | None:
         return _flag(cond, "la factura tenga una orden de compra", "la factura no tenga una orden de compra válida")
     if col == "desviacion_pct" and op is Operator.GT:
         return f"el monto se desvíe más de {_num(v)} % de la orden"
+    if col == "saldo_oc_despues_pct" and op in (Operator.LT, Operator.LTE) and isinstance(v, (int, float, Decimal)):
+        return "la factura sobregire la orden de compra" + (f" más de {_num(-v)} %" if v < 0 else "")
     if col == "saldo_oc_despues_pct" and op in (Operator.LT, Operator.LTE):
         return "la factura sobregire la orden de compra"
     if col == "moneda_coincide":
@@ -144,12 +146,22 @@ def _clause(cond: Condition, labels: dict[str, str]) -> str:
     return f"{subject} {verb} {_value(cond.value)}"
 
 
+def _is_po_guard(cond: Condition) -> bool:
+    return (cond.left.source, cond.left.column, cond.operator, cond.value) == ("po_check", "orden_encontrada", Operator.EQ, True)
+
+
+def _without_guards(conditions: Sequence[Condition]) -> Sequence[Condition]:
+    """'The order exists' only guards the other po_check conditions; it adds nothing to the sentence."""
+    others = [c for c in conditions if c.left.source == "po_check" and not _is_po_guard(c)]
+    return [c for c in conditions if not _is_po_guard(c)] if others else conditions
+
+
 def rule_summary(effect: Effect, conditions: Sequence[Condition], labels: dict[str, str] | None = None) -> str:
     """One plain Spanish sentence for a rule, e.g. 'Pide tu aprobación cuando el monto supere USD 5.000'.
 
     Deterministic (no LLM). Seed columns have hand-written wording; any other column falls back to a generic form.
     """
-    clauses = [_clause(c, labels or {}) for c in conditions]
+    clauses = [_clause(c, labels or {}) for c in _without_guards(conditions)]
     if not clauses:
         return _LEAD[effect]
     return f"{_LEAD[effect]} cuando {' y '.join(clauses)}"

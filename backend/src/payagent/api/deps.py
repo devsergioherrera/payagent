@@ -6,6 +6,7 @@ from functools import lru_cache
 
 from fastapi import Cookie, HTTPException
 
+from payagent.adapters.postgres.policy import PolicyQueries
 from payagent.adapters.postgres.queries import ApiQueries
 from payagent.config import settings
 
@@ -47,6 +48,11 @@ def password_ok(candidate: str) -> bool:
 @lru_cache
 def get_queries() -> ApiQueries:
     return ApiQueries()
+
+
+@lru_cache
+def get_policy_queries() -> PolicyQueries:
+    return PolicyQueries()
 
 
 @lru_cache

@@ -374,3 +374,49 @@ def test_create_rule_runs_the_shared_validator(client: TestClient):
     assert res.status_code == 422 and "no se puede usar" in res.json()["detail"]
     bad_range = [{**base["conditions"][0], "operator": "BETWEEN", "value": [10, 1]}]
     assert client.post("/rules", json={**base, "conditions": bad_range}).status_code == 422
+
+
+def test_policy_reads_budget_and_limits(client: TestClient):
+    body = client.get("/policy").json()
+    b = body["budget"]
+    assert b["period"].endswith("-01") and b["amount_usd"] > 0
+    assert b["available_usd"] == pytest.approx(b["amount_usd"] - b["paid_usd"] - b["approved_usd"])
+    limits = {x["key"]: x for x in body["limits"]}
+    assert limits["payment_limit"]["unit"] == "USD" and limits["payment_limit"]["value"] is not None
+    assert limits["po_overdraft"]["value"] is not None and limits["po_overdraft"]["unit"] == "%"
+    assert body["blocked_vendors"] >= 1 and body["exceptions"] >= 0
+
+
+def test_set_budget_upserts_and_validates(client: TestClient):
+    before = client.get("/policy").json()["budget"]
+    try:
+        r = client.put("/budget", json={"period": before["period"], "amount_usd": 71000})
+        assert r.status_code == 200 and r.json()["budget"]["amount_usd"] == 71000
+        assert client.get("/policy").json()["budget"]["amount_usd"] == 71000
+        assert client.put("/budget", json={"period": before["period"], "amount_usd": 0}).status_code == 422
+        assert client.put("/budget", json={"period": before["period"][:8] + "15", "amount_usd": 5}).status_code == 422
+    finally:
+        client.put("/budget", json={"period": before["period"], "amount_usd": before["amount_usd"]})
+    assert client.get("/policy").json()["budget"]["amount_usd"] == before["amount_usd"]
+
+
+def test_policy_requires_session(anon: TestClient):
+    assert anon.get("/policy").status_code == 401
+    assert anon.put("/budget", json={"period": "2026-10-01", "amount_usd": 1}).status_code == 401
+
+
+def test_policy_limit_follows_the_replacing_rule(client: TestClient, cleanup):
+    # Inserted inactive, so the seed rule it points at is never touched.
+    child = str(uuid.uuid4())
+    with get_pool().connection() as conn:
+        conn.execute(
+            "insert into rule (id, name, natural_language, effect, origin, proposed_by, approved_by, active, replaces_rule_id)"
+            " values (%s, 'test-limit', 'x', 'ESCALATE', 'HUMAN', 'test', 'test', false, '20000000-0000-0000-0000-000000000005')",
+            (child,),
+        )
+        conn.execute(
+            "insert into rule_condition (rule_id, position, source, column_name, operator, value)"
+            " values (%s, 1, 'invoice', 'amount_usd', 'GT', '7000')", (child,))
+    cleanup["rule"].append(child)
+    limit = {x["key"]: x for x in client.get("/policy").json()["limits"]}["payment_limit"]
+    assert limit["value"] == 7000 and limit["rule_id"] == child and limit["active"] is False
