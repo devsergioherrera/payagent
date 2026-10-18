@@ -10,6 +10,7 @@ Lo importante es el agente: decide bien, explica cada decisión y aprende reglas
 |---|---|
 | Empresa | FacturaYa: constituida en EE. UU., cuenta en USD, proveedores en CO, MX, BR y US. |
 | Salidas del agente | Pagar, Frenar, Escalar (`PAY`, `HOLD`, `ESCALATE`). Prioridad: Frenar > Escalar > Pagar. |
+| Frenar es final | Frenar es final. Solo Escalar espera una decisión humana. Nadie libera ni rechaza una factura frenada; desde su detalle se puede crear una regla (`/reglas?from=<id>`). |
 | Decisión humana | Aprobar o Rechazar, con motivo obligatorio al rechazar. |
 | Reglas | Una sola forma: condiciones `fuente.columna operador valor` en AND. El valor puede ser otra columna. Efectos: `ALLOW`, `ESCALATE`, `HOLD`. |
 | ALLOW | Solo cancela escalaciones de reglas `overridable`. Nunca cancela un Frenar ni el umbral humano. |

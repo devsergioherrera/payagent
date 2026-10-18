@@ -34,7 +34,8 @@ const json = (body: unknown): RequestInit => ({
 const mock = <T,>(value: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(value)), 150));
 
 export interface InvoiceFilters {
-  outcome?: Outcome; status?: string; q?: string; vendor_id?: string; limit?: number; offset?: number;
+  outcome?: Outcome; status?: string; q?: string; vendor_id?: string; from?: string; to?: string;
+  limit?: number; offset?: number;
 }
 export interface VendorFilters { q?: string; status?: string; country?: string; limit?: number; offset?: number }
 export interface PurchaseOrderFilters {
@@ -51,8 +52,17 @@ export const api = {
   summary: () => (USE_MOCKS ? mock<Summary>(mocks.summary) : request<Summary>("/summary")),
 
   invoices: (f: InvoiceFilters = {}) => {
-    if (USE_MOCKS) return mock(mocks.invoicesFor(f));
+    if (USE_MOCKS) return mock(mocks.invoicesFor(f).items);
     return request<InvoiceSummary[]>(`/invoices?${query(f)}`);
+  },
+  // Same list with the total behind the filters (X-Total-Count), for pagination.
+  invoicesPage: async (f: InvoiceFilters = {}): Promise<Page<InvoiceSummary>> => {
+    if (USE_MOCKS) return mock(mocks.invoicesFor(f));
+    const res = await fetch(`/api/invoices?${query(f)}`, { credentials: "include" });
+    if (res.status === 401 && typeof window !== "undefined") window.location.href = "/login";
+    if (!res.ok) throw new ApiError(res.status, `Error ${res.status}`);
+    const items: InvoiceSummary[] = await res.json();
+    return { items, total: Number(res.headers.get("X-Total-Count") ?? items.length) };
   },
   invoice: (id: string) =>
     USE_MOCKS

@@ -85,7 +85,7 @@ def process_invoice(
         if notifications:
             notifications.record(result.invoice_id, kind, recipient, "FAILED" if error else "SENT", error)
 
-    if result.outcome is not Outcome.PAY:  # both ESCALATE and HOLD need a human
+    if result.outcome is Outcome.ESCALATE:  # HOLD is final: nobody needs to act
         send("ESCALATION", approver_email, notifier.notify_escalation, _escalation_subject(result), _escalation_body(result, doc, link))
     if doc.email:
         send("REPLY", doc.email.sender, notifier.reply_to_sender, doc.email, _reply_body(result, link))
@@ -103,9 +103,8 @@ def _safely(send, *args) -> str | None:
 
 
 def _escalation_subject(result: ProcessedInvoice) -> str:
-    tag = "[Frenada]" if result.outcome is Outcome.HOLD else "[Escalada]"
     vendor = result.vendor or "proveedor desconocido"
-    return f"{tag} {vendor} · {result.amount or '?'} {result.currency or ''}".strip()
+    return f"[Escalada] {vendor} · {result.amount or '?'} {result.currency or ''}".strip()
 
 
 def _escalation_body(result: ProcessedInvoice, doc: IncomingDocument, link: str) -> str:
@@ -123,7 +122,7 @@ def _escalation_body(result: ProcessedInvoice, doc: IncomingDocument, link: str)
 
 _OUTCOME_LABEL = {
     Outcome.PAY: "PAGAR",
-    Outcome.HOLD: "FRENAR",
+    Outcome.HOLD: "FRENAR (decisión final del agente)",
     Outcome.ESCALATE: "ESCALAR (pendiente de aprobación humana)",
 }
 

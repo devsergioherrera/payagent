@@ -147,10 +147,17 @@ def test_failed_mail_is_logged_with_its_error(tmp_path):
     assert "smtp down" in log.rows[0][4]
 
 
-def test_hold_also_escalates_with_its_own_subject(tmp_path):
+def test_hold_is_final_no_approver_mail_but_sender_is_answered(tmp_path):
+    notifier, log = FakeNotifier(), FakeLog()
+    _process(Outcome.HOLD, notifier, log, tmp_path)
+    assert notifier.escalations == []
+    assert [r[1] for r in log.rows] == ["REPLY"]
+
+
+def test_escalate_subject_asks_for_approval(tmp_path):
     notifier = FakeNotifier()
-    _process(Outcome.HOLD, notifier, FakeLog(), tmp_path)
-    assert notifier.escalations[0].startswith("[Frenada]")
+    _process(Outcome.ESCALATE, notifier, FakeLog(), tmp_path)
+    assert notifier.escalations[0].startswith("[Escalada]")
 
 
 def test_escalation_body_has_the_facts_a_human_needs(tmp_path):

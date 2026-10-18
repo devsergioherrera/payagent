@@ -41,10 +41,13 @@ export function buildSteps(invoice: InvoiceDetail): Step[] {
         ...(cost ? [`${costUsd(cost.cost_usd)} · ${duration(cost.duration_ms)}`, `${new Intl.NumberFormat("es-CO").format(cost.input_tokens + cost.output_tokens)} tokens`] : []),
       ],
     },
-    { key: "rules", label: "Reglas evaluadas", icon: ListChecks, at: decision?.at ?? null, lines: invoice.hits.length ? ruleCounts(invoice) : [] },
+    { key: "rules", label: "Reglas", icon: ListChecks, at: decision?.at ?? null, lines: invoice.hits.length ? ruleCounts(invoice) : [] },
     { key: "decision", label: "Decisión", icon: Gavel, at: decision?.at ?? null, lines: decision ? [decision.label.replace("Decisión: ", ""), ...(decision.detail ? [decision.detail] : [])] : [] },
-    { key: "notice", label: "Notificación", icon: Bell, at: notice?.at ?? null, lines: notice ? [notice.label, ...(notice.detail ? [`A ${notice.detail}`] : [])] : [], failed: notice?.label.includes("fallida") },
   ];
+  // Only an escalation notifies the approver; a hold is final and has no such step.
+  if (notice && invoice.summary.outcome === "ESCALATE") {
+    steps.push({ key: "notice", label: "Notificación", icon: Bell, at: notice.at, lines: [notice.label, ...(notice.detail ? [`A ${notice.detail}`] : [])], failed: notice.label.includes("fallida") });
+  }
   if (approval || human) {
     steps.push({
       key: "human", label: "Tu decisión", icon: UserCheck, at: human?.at ?? approval?.created_at ?? null,
@@ -59,18 +62,18 @@ function StepItem({ step, last }: { step: Step; last: boolean }) {
   const done = step.at != null;
   const Icon = step.icon;
   return (
-    <li className="relative flex items-center gap-3 sm:flex-1 sm:flex-col sm:gap-1.5">
-      {!last && <span aria-hidden className={cn("absolute left-4 top-8 h-[calc(100%-0.5rem)] w-0.5 sm:left-1/2 sm:top-4 sm:h-0.5 sm:w-full", done ? "bg-brand/40" : "bg-border")} />}
+    <li className="relative flex min-w-0 flex-1 flex-col items-center gap-1">
+      {!last && <span aria-hidden className={cn("absolute left-1/2 top-3.5 h-0.5 w-full", done ? "bg-brand/40" : "bg-border")} />}
       <Tooltip open={open} onOpenChange={setOpen}>
         <TooltipTrigger
           render={<button type="button" onClick={() => setOpen((v) => !v)} aria-label={`${step.label}: detalle`} />}
-          className="relative z-10 flex items-center gap-3 rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:flex-col sm:gap-2"
+          className="relative z-10 rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <span className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-full border-2 bg-card",
+            "grid size-7 place-items-center rounded-full border-2 bg-card",
             done ? (step.failed ? "border-hold text-hold" : "border-brand bg-brand-soft text-brand") : "border-dashed border-border text-muted-foreground",
           )}>
-            <Icon className="size-4" />
+            <Icon className="size-3.5" />
           </span>
         </TooltipTrigger>
         {done && step.lines.length > 0 && (
@@ -80,19 +83,17 @@ function StepItem({ step, last }: { step: Step; last: boolean }) {
           </TooltipContent>
         )}
       </Tooltip>
-      <div className="min-w-0 flex-1 sm:flex-none sm:text-center">
-        <p className={cn("text-[13px] font-medium", !done && "text-muted-foreground")}>{step.label}</p>
-        <p className="text-xs tabular-nums text-muted-foreground">{step.at ? time(step.at) : "Pendiente"}</p>
-      </div>
+      <p className={cn("max-w-full text-[10px] font-medium leading-none sm:text-[11px]", !done && "text-muted-foreground")}>{step.label}</p>
+      <p className="whitespace-nowrap text-[10px] leading-none tabular-nums text-muted-foreground sm:text-[11px]">{step.at ? time(step.at) : "Pendiente"}</p>
     </li>
   );
 }
 
-export function Stepper({ invoice }: { invoice: InvoiceDetail }) {
+export function Stepper({ invoice, className }: { invoice: InvoiceDetail; className?: string }) {
   const steps = buildSteps(invoice);
   return (
-    <nav aria-label="Trazabilidad" className="rounded-2xl border bg-card px-4 py-2.5 sm:px-5">
-      <ol className="flex flex-col gap-4 sm:flex-row sm:gap-0">
+    <nav aria-label="Trazabilidad" className={className}>
+      <ol className="flex">
         {steps.map((s, i) => <StepItem key={s.key} step={s} last={i === steps.length - 1} />)}
       </ol>
     </nav>
