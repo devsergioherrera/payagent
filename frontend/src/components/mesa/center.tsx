@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Mascot, type MascotState } from "@/components/mascot/mascot";
 import { api } from "@/lib/api";
 import type { InvoiceSummary, Summary } from "@/lib/api-types";
-import { greeting, OUTCOME_STYLE } from "@/lib/format";
+import { greeting, isProcessing, OUTCOME_STYLE } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Composer } from "./composer";
@@ -18,11 +19,31 @@ function Chip({ label, value, className }: { label: string; value: number; class
   );
 }
 
-function Home({ summary, latest }: { summary: Summary | null; latest: InvoiceSummary | undefined }) {
+const OUTCOME_MASCOT = { PAY: "paid", ESCALATE: "escalated", HOLD: "held" } as const;
+
+// Thinking while the newest invoice is processed, then its outcome for a few seconds, then idle.
+function useMascotState(latest: InvoiceSummary | undefined, busy: boolean): MascotState {
+  const [prev, setPrev] = useState<{ id?: string; processing: boolean }>({ processing: false });
+  const [reveal, setReveal] = useState<MascotState | null>(null);
+  const processing = !!latest && isProcessing(latest.status);
+  if (latest && (prev.id !== latest.id || prev.processing !== processing)) {
+    setPrev({ id: latest.id, processing });
+    if (prev.id !== undefined && !processing && latest.outcome) setReveal(OUTCOME_MASCOT[latest.outcome]);
+  }
+  useEffect(() => {
+    if (!reveal) return;
+    const t = setTimeout(() => setReveal(null), 6000);
+    return () => clearTimeout(t);
+  }, [reveal]);
+  if (processing || busy) return "thinking";
+  return reveal ?? "idle";
+}
+
+function Home({ summary, latest, mascot }: { summary: Summary | null; latest: InvoiceSummary | undefined; mascot: MascotState }) {
   if (!summary) {
     return (
       <div className="space-y-5">
-        <Skeleton className="size-20 rounded-2xl" />
+        <Skeleton className="size-28 rounded-[32%]" />
         <div className="space-y-2"><Skeleton className="h-8 w-64" /><Skeleton className="h-4 w-80 max-w-full" /></div>
         <Skeleton className="h-7 w-96 max-w-full rounded-full" />
         <Skeleton className="h-28 rounded-2xl" />
@@ -32,7 +53,7 @@ function Home({ summary, latest }: { summary: Summary | null; latest: InvoiceSum
   const n = summary.pending_human;
   return (
     <div className="space-y-6">
-      <div id="mascot-slot" className="size-20 rounded-2xl bg-brand-soft" />
+      <Mascot state={mascot} size={112} className="-ml-1" />
       <div className="space-y-1.5">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{greeting()}, Sergio.</h1>
         <p className="text-sm text-muted-foreground">
@@ -56,6 +77,8 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
   const end = useRef<HTMLDivElement>(null);
   const latest = invoices ? [...invoices].sort((a, b) => b.received_at.localeCompare(a.received_at))[0] : undefined;
 
+  const mascot = useMascotState(latest, waiting);
+
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [messages, waiting]);
@@ -77,7 +100,7 @@ export function Center({ summary, invoices, className }: { summary: Summary | nu
     <section className={cn("flex min-h-0 flex-col", className)}>
       <div className="min-h-0 flex-1 overflow-y-auto px-4">
         <div className="mx-auto w-full max-w-2xl py-8">
-          {messages.length === 0 ? <Home summary={summary} latest={latest} /> : <Conversation messages={messages} waiting={waiting} />}
+          {messages.length === 0 ? <Home summary={summary} latest={latest} mascot={mascot} /> : <Conversation messages={messages} waiting={waiting} />}
           <div ref={end} />
         </div>
       </div>

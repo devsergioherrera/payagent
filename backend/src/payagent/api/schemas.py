@@ -21,6 +21,7 @@ Endpoints (all under /api, all but /auth/login need the session cookie):
   GET  /purchase-orders?q=&vendor_id=&status=&with_balance=&limit=50&offset=0   -> Page[PurchaseOrderRow]
   GET  /purchase-orders/{po_number}   -> PurchaseOrderDetail
   GET  /costs                 -> Costs
+  GET  /activity?limit=20     -> list[ActivityItem]               (newest first)
   POST /chat                  multipart: `message` + optional `file` -> ChatReply
 """
 
@@ -276,6 +277,16 @@ class Costs(BaseModel):
     output_tokens: int
     by_type: list[CostByType]
     recent: list[OperationRow]
+
+
+class ActivityItem(BaseModel):
+    id: str
+    kind: Literal["ESCALATED", "HELD", "PAID", "PROPOSAL", "EMAIL_FAILED"]
+    title: str
+    detail: str
+    invoice_id: str | None = None
+    proposal_id: str | None = None
+    at: datetime
 
 
 class ChatCard(BaseModel):

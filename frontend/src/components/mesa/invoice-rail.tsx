@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { FileText, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import type { InvoiceSummary, Summary } from "@/lib/api-types";
 import { ago, invoiceState, money, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -35,16 +35,43 @@ function EmailStatus({ summary }: { summary: Summary | null }) {
   );
 }
 
-export function InvoiceRail({ invoices, summary, className }: { invoices: InvoiceSummary[] | null; summary: Summary | null; className?: string }) {
+interface Props {
+  invoices: InvoiceSummary[] | null;
+  summary: Summary | null;
+  className?: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}
+
+export function InvoiceRail({ invoices, summary, className, collapsed, onToggle }: Props) {
   const [query, setQuery] = useState("");
   const rows = useMemo(() => (invoices ?? []).filter((i) => matches(i, query)), [invoices, query]);
+
+  if (collapsed) {
+    return (
+      <aside className={cn("flex min-h-0 flex-col items-center gap-3 py-3", className)}>
+        <button aria-label="Mostrar facturas" onClick={onToggle} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:scale-[0.98]">
+          <PanelLeftOpen className="size-4" />
+        </button>
+        <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground"><FileText className="size-4" /></span>
+      </aside>
+    );
+  }
 
   return (
     <aside className={cn("flex min-h-0 flex-col", className)}>
       <div className="space-y-3 px-4 pb-3 pt-4">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold">Facturas</h2>
-          <EmailStatus summary={summary} />
+        <div className="flex items-start gap-2">
+          <FileText className="mt-0.5 size-4 text-muted-foreground" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <h2 className="text-sm font-semibold">Facturas</h2>
+            <EmailStatus summary={summary} />
+          </div>
+          {onToggle && (
+            <button aria-label="Ocultar facturas" onClick={onToggle} className="hidden size-7 items-center justify-center rounded-lg text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:scale-[0.98] lg:flex">
+              <PanelLeftClose className="size-4" />
+            </button>
+          )}
         </div>
         <label className="relative block">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
