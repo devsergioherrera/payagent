@@ -58,7 +58,10 @@ export interface ConditionView {
 
 export interface RuleDraft {
   name: string; natural_language: string; effect: Effect; overridable: boolean; conditions: ConditionView[];
+  summary: string; // plain sentence, e.g. "Pide tu aprobación cuando el monto supere USD 5.000"
 }
+
+export interface RuleCreate extends RuleDraft { replaces_rule_id?: string | null }
 
 export interface RuleView extends RuleDraft {
   id: string; origin: "HUMAN" | "AGENT"; proposed_by: string; proposed_at: string;
