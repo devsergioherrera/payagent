@@ -25,6 +25,7 @@ from payagent.api.schemas import (
     PurchaseOrderRow,
     PurchaseOrderView,
     RuleSourceView,
+    ReplacedBy,
     RuleView,
     Summary,
     TimelineStep,
@@ -310,9 +311,13 @@ class ApiQueries:
                 conn,
                 """select r.id::text, r.name, r.natural_language, r.effect, r.overridable, r.origin, r.proposed_by,
                           r.proposed_at, r.approved_by, r.approved_at, r.active,
+                          r.deactivated_at, r.deactivated_by, n.id::text as replaced_by_id, n.name as replaced_by_name,
                           (select count(*) from decision_rule_hit h where h.rule_id = r.id and h.result = 'FIRED')
                             as times_fired
-                   from rule r where (%(id)s::uuid is null or r.id = %(id)s::uuid)
+                   from rule r
+                   left join lateral (select id, name from rule where replaces_rule_id = r.id
+                                      order by proposed_at desc limit 1) n on true
+                   where (%(id)s::uuid is null or r.id = %(id)s::uuid)
                    order by r.active desc, r.proposed_at desc, r.name""",
                 {"id": rule_id},
             )
@@ -343,6 +348,8 @@ class ApiQueries:
                 overridable=r["overridable"], conditions=conds.get(r["id"], []), origin=r["origin"],
                 proposed_by=r["proposed_by"], proposed_at=r["proposed_at"], approved_by=r["approved_by"],
                 approved_at=r["approved_at"], active=r["active"], times_fired=r["times_fired"],
+                replaced_by=ReplacedBy(id=r["replaced_by_id"], name=r["replaced_by_name"]) if r["replaced_by_id"] else None,
+                deactivated_at=r["deactivated_at"], deactivated_by=r["deactivated_by"],
                 summary=rule_summary(Effect(r["effect"]), raw_conds.get(r["id"], [])),
             )
             for r in rules

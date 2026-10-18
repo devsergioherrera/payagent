@@ -164,6 +164,11 @@ class RuleCreate(RuleDraft):
     replaces_rule_id: str | None = None  # the old version is deactivated in the same transaction
 
 
+class ReplacedBy(BaseModel):
+    id: str
+    name: str
+
+
 class RuleView(RuleDraft):
     id: str
     origin: Literal["HUMAN", "AGENT"]
@@ -173,6 +178,9 @@ class RuleView(RuleDraft):
     approved_at: datetime
     active: bool
     times_fired: int
+    replaced_by: ReplacedBy | None = None  # newest rule that replaces this one; it cannot be reactivated
+    deactivated_at: datetime | None = None
+    deactivated_by: str | None = None
 
 
 class DraftRequest(BaseModel):

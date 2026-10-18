@@ -5,7 +5,8 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from payagent.adapters.postgres.db import get_pool, json_dumps
-from payagent.domain.rule import ColumnRef, Condition, Effect, Operator
+from payagent.app.rule_validation import RuleError, validate_rule
+from payagent.domain.rule import Condition, Effect, Operator
 from payagent.ports.repositories import ColumnInfo, SourceInfo
 
 _NUMBER = {"smallint", "integer", "bigint", "numeric", "real", "double precision"}
@@ -73,14 +74,13 @@ class PostgresRules:
         approved_by: str,
         replaces_rule_id: str | None = None,
     ) -> str:
-        if effect is Effect.ALLOW and not overridable:
-            raise ValueError("an ALLOW rule is always overridable")
-        if not conditions:
-            raise ValueError("a rule needs at least one condition")
         with self._pool.connection() as conn:
-            self._validate(conn, conditions)
+            self._validate(conn, effect, overridable, conditions)
             if replaces_rule_id is not None:
-                conn.execute("update rule set active = false where id = %s", (replaces_rule_id,))
+                conn.execute(
+                    "update rule set active = false, deactivated_at = now(), deactivated_by = %s where id = %s",
+                    (approved_by, replaces_rule_id),
+                )
             rule_id = conn.execute(
                 """
                 insert into rule (name, natural_language, effect, overridable, origin, proposed_by, approved_by,
@@ -112,33 +112,30 @@ class PostgresRules:
                 )
         return str(rule_id)
 
-    def deactivate(self, rule_id: str) -> None:
+    def deactivate(self, rule_id: str, by: str | None = None) -> None:
         with self._pool.connection() as conn:
-            conn.execute("update rule set active = false where id = %s", (rule_id,))
+            conn.execute(
+                "update rule set active = false, deactivated_at = now(), deactivated_by = %s where id = %s",
+                (by, rule_id),
+            )
 
     def activate(self, rule_id: str) -> None:
         with self._pool.connection() as conn:
-            conn.execute("update rule set active = true where id = %s", (rule_id,))
+            conn.execute(
+                "update rule set active = true, deactivated_at = null, deactivated_by = null where id = %s", (rule_id,)
+            )
 
     @staticmethod
-    def _validate(conn: Connection, conditions: Sequence[Condition]) -> None:
+    def _validate(conn: Connection, effect: Effect, overridable: bool, conditions: Sequence[Condition]) -> None:
         active = {r[0] for r in conn.execute("select name from rule_source where active").fetchall()}
-        cache: dict[str, set[str]] = {}
+        cache: dict[str, dict[str, ColumnInfo]] = {}
 
-        def check(ref: ColumnRef) -> None:
-            if ref.source not in active:
-                raise ValueError(f"unknown rule source: {ref.source}")
-            cols = cache.setdefault(ref.source, {c.name for c in source_columns(conn, ref.source)})
-            if ref.column not in cols:
-                raise ValueError(f"unknown column: {ref}")
+        def column(source: str, name: str) -> ColumnInfo:
+            if source not in active:
+                raise RuleError(f"La fuente «{source}» no existe")
+            cols = cache.setdefault(source, {c.name: c for c in source_columns(conn, source)})
+            if name not in cols:
+                raise RuleError(f"La fuente «{source}» no tiene la columna «{name}»")
+            return cols[name]
 
-        for c in conditions:
-            check(c.left)
-            if c.value_ref:
-                check(c.value_ref)
-            no_value = c.operator in (Operator.IS_NULL, Operator.IS_NOT_NULL)
-            if no_value and (c.value is not None or c.value_ref):
-                raise ValueError(f"{c.operator} takes no value")
-            if not no_value and (c.value is None) == (c.value_ref is None):
-                raise ValueError("give either a literal value or a column to compare with")
-
+        validate_rule(effect=effect, overridable=overridable, conditions=conditions, column=column)

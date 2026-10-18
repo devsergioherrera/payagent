@@ -264,3 +264,22 @@ def test_usage_meter_cost_and_never_raises(created):
         costs = [r[0] for r in conn.execute(
             "select cost_usd from llm_usage where operation_id = %s order by cost_usd desc", (op,)).fetchall()]
     assert costs == [Decimal("0.550000"), Decimal("0")]
+
+
+def test_second_invoice_that_overdraws_the_po_fires_rule_16(created):
+    from payagent.domain.engine import evaluate
+
+    first = _new_invoice(created, _extracted(amount=Decimal("3200000"), invoice_number="T-PO-1"))
+    with get_pool().connection() as conn:
+        conn.execute(
+            "insert into decision (invoice_id, outcome, status, explanation, explained_by) "
+            "values (%s, 'PAY', 'FINAL', 'test', 'TEMPLATE')", (first,),
+        )
+    second = _new_invoice(created, _extracted(amount=Decimal("4800000"), invoice_number="T-PO-2"))
+    with PostgresDecisions().session() as session:
+        facts = session.load_facts(second, {"invoice", "po_check"})
+        rules = [r for r in session.active_rules() if r.id.endswith("0016")]
+    assert facts.value(ColumnRef("po_check", "comprometido_oc")) >= Decimal("3200000")
+    assert facts.value(ColumnRef("po_check", "saldo_oc_despues_pct")) < -5
+    decision = evaluate(rules, facts)
+    assert [h.result for h in decision.hits] == [HitResult.FIRED] and decision.outcome is Outcome.ESCALATE

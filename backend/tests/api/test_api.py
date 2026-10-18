@@ -350,3 +350,27 @@ def test_rules_activate_replace_and_summary(client: TestClient, cleanup):
     assert next(r for r in client.get("/rules").json() if r["id"] == old["id"])["active"] is False
     assert client.post(f"/rules/{uuid.uuid4()}/activate").status_code == 404
     assert client.post("/rules", json={**draft, "replaces_rule_id": str(uuid.uuid4())}).status_code == 404
+    # superseded rule cannot come back; replacing an inactive rule is refused; the toggle is recorded
+    res = client.post(f"/rules/{old['id']}/activate")
+    assert res.status_code == 409 and "test-regla-v2" in res.json()["detail"]
+    assert client.post("/rules", json={**new_draft, "name": "test-regla-v3"}).status_code == 409
+    listed = {r["id"]: r for r in client.get("/rules").json()}
+    assert listed[old["id"]]["replaced_by"]["id"] == new["id"]
+    assert listed[old["id"]]["deactivated_by"] == settings.admin_name
+    off = client.post(f"/rules/{new['id']}/deactivate").json()
+    assert off["deactivated_by"] == settings.admin_name and off["deactivated_at"]
+    on = client.post(f"/rules/{new['id']}/activate").json()
+    assert on["deactivated_by"] is None and on["replaced_by"] is None
+
+
+def test_create_rule_runs_the_shared_validator(client: TestClient):
+    base = {
+        "name": "test-regla-invalida", "natural_language": "x", "effect": "ESCALATE", "overridable": True,
+        "conditions": [{"source": "invoice", "column": "amount_usd", "operator": "GT", "value": 1, "text": ""}],
+    }
+    assert client.post("/rules", json={**base, "effect": "HOLD"}).status_code == 422
+    bad_op = [{**base["conditions"][0], "column": "currency", "operator": "GT", "value": "USD"}]
+    res = client.post("/rules", json={**base, "conditions": bad_op})
+    assert res.status_code == 422 and "no se puede usar" in res.json()["detail"]
+    bad_range = [{**base["conditions"][0], "operator": "BETWEEN", "value": [10, 1]}]
+    assert client.post("/rules", json={**base, "conditions": bad_range}).status_code == 422

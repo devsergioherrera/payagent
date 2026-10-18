@@ -11,6 +11,7 @@ export const COLUMN_LABEL: Record<string, string> = {
   orden_encontrada: "orden encontrada", desviacion_pct: "desviación", moneda_coincide: "moneda coincide",
   proveedor_coincide: "proveedor coincide", saldo_despues_usd: "saldo tras pagar (USD)",
   comprometido_usd: "comprometido en el mes (USD)", presupuesto_usd: "presupuesto del mes (USD)",
+  comprometido_oc: "ya comprometido en la orden", saldo_oc_despues_pct: "saldo de la orden tras pagar",
 };
 
 const VALUE_LABEL: Record<string, string> = { BLOCKED: "bloqueado", ALLOWED: "permitido", OPEN: "abierta", CLOSED: "cerrada" };
