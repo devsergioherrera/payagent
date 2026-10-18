@@ -31,6 +31,7 @@ Para retomar el trabajo si se pierde el contexto de la sesión. Lo más nuevo va
 - Deploy nunca resetea datos; aplica migraciones pendientes antes de reiniciar.
 
 ## Historial
+- 02:30 W9 (el agente aprende visiblemente) y W10 (barra Dictar, Aprender, Preguntar + dictado por voz) integrados; /transcribe probado con audio real. Desplegado.
 - 18 oct W10: barra de acciones sobre el compositor de la Mesa (Dictar, Aprender de mis decisiones, Preguntar), dictado por voz (SpeechRecognition o grabación + `POST /transcribe` con Gemini) y la traza dice "Límites que respeta" en vez de afirmar una comprobación que no se hace.
 - 18 oct W9: el agente nota patrones solo tras cada resolución y muestra su razonamiento real (traza en `operation.detail`, migración 011): mensaje en la Mesa, traza en Reglas y "regla aprendida" en la factura pagada.
 - 21:55 W7 integrado y verificado con datos reales: la Mesa dice "Aprobada por ti" y los chips cuentan por estado.
