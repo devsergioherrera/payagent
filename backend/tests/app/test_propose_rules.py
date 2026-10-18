@@ -12,6 +12,7 @@ from payagent.app.propose_rules import (
     ProposalService,
     StoredProposal,
     find_patterns,
+    shared_rules,
 )
 from payagent.domain.rule import ColumnRef, Condition, Effect, Operator, Rule
 from payagent.ports.repositories import ColumnInfo, ResolvedCase, SourceInfo
@@ -157,6 +158,14 @@ def test_find_patterns_needs_three_with_same_verdict_vendor_and_rules():
     groups = find_patterns(cases)
     assert [[c.invoice_id for c in g] for g in groups] == [["inv-1", "inv-2", "inv-3"]]
     assert find_patterns(THREE[:2]) == []
+
+
+def test_find_patterns_tolerates_an_extra_rule_in_some_cases():
+    cases = [case(1), case(2, rules=("Sin orden de compra", "Posible cobro repetido")),
+             case(3, rules=("Sin orden de compra", "Posible cobro repetido"))]
+    groups = find_patterns(cases)
+    assert [[c.invoice_id for c in g] for g in groups] == [["inv-1", "inv-2", "inv-3"]]
+    assert shared_rules(groups[0]) == ["Sin orden de compra"]
 
 
 def test_run_creates_allow_proposal_and_marks_cases_reviewed():

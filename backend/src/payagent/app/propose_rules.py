@@ -301,7 +301,7 @@ class ProposalService:
                         "name": n,
                         "conditions": [condition_text(c, labels) for c in by_name[n].conditions] if n in by_name else [],
                     }
-                    for n in group[0].fired_rules
+                    for n in shared_rules(group)
                 ],
                 "invoice_ids": [c.invoice_id for c in group],
                 "notes": [c.note for c in group if c.note],
@@ -324,13 +324,34 @@ class ProposalService:
         )
 
 
+def shared_rules(group: list[ResolvedCase]) -> list[str]:
+    """Rules that fired in every case of the group: the reason the human kept deciding the same way."""
+    common = set(group[0].fired_rules)
+    for c in group[1:]:
+        common &= set(c.fired_rules)
+    return sorted(common)
+
+
 def find_patterns(cases: list[ResolvedCase]) -> list[list[ResolvedCase]]:
-    """Groups of >= MIN_PATTERN cases with the same fired rules, vendor and verdict."""
-    groups: dict[tuple, list[ResolvedCase]] = defaultdict(list)
+    """For each vendor and verdict, the cases where one same rule fired at least MIN_PATTERN times.
+
+    Grouping by the exact set of fired rules missed real patterns: a monthly subscription also trips
+    "same amount in 30 days" on some months, so identical decisions looked different.
+    """
+    by_vendor: dict[tuple, list[ResolvedCase]] = defaultdict(list)
     for c in cases:
         if c.fired_rules and c.vendor_name:
-            groups[(tuple(sorted(c.fired_rules)), c.vendor_name, c.verdict)].append(c)
-    return [g for g in groups.values() if len(g) >= MIN_PATTERN]
+            by_vendor[(c.vendor_name, c.verdict)].append(c)
+    groups: list[list[ResolvedCase]] = []
+    for members in by_vendor.values():
+        seen: set[tuple[str, ...]] = set()
+        for rule in sorted({r for c in members for r in c.fired_rules}):
+            group = [c for c in members if rule in c.fired_rules]
+            ids = tuple(c.invoice_id for c in group)
+            if len(group) >= MIN_PATTERN and ids not in seen:
+                seen.add(ids)
+                groups.append(group)
+    return groups
 
 
 def _plain(v: Any) -> Any:
