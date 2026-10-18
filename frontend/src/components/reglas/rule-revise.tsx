@@ -6,12 +6,16 @@ import { toast } from "sonner";
 import { api, errorMessage } from "@/lib/api";
 import type { RuleDraft, RuleView } from "@/lib/api-types";
 import { Button } from "@/components/ui/button";
+import { DictateButton } from "./dictate-button";
 import { EffectBadge } from "./effect-badge";
 import { AllowWarning, CONFIRM_LABEL, TechnicalCondition } from "./rule-sentence";
+
+const join = (a: string, b: string) => (a.trim() ? `${a.trim()} ${b}` : b);
 
 // Inline "edit with the agent": ask, read the agent's new version next to the old one, confirm to replace.
 export function RuleRevise({ rule, onClose, onSaved, initialText = "" }: { rule: RuleView; onClose: () => void; onSaved: () => void; initialText?: string }) {
   const [text, setText] = useState(initialText);
+  const [interim, setInterim] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +60,13 @@ export function RuleRevise({ rule, onClose, onSaved, initialText = "" }: { rule:
           id={`revise-${rule.id}`}
           autoFocus
           onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
-          value={text}
+          value={interim ? join(text, interim) : text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask()}
           placeholder="Ej.: súbelo a 8 mil"
           className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
+        <DictateButton onText={(t) => setText((c) => join(c, t))} onInterim={setInterim} disabled={busy} />
         <Button size="icon" onClick={ask} disabled={!text.trim() || busy} aria-label="Pedir el cambio" className="size-8 rounded-full bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]">
           {busy ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <ArrowUp />}
         </Button>

@@ -8,8 +8,11 @@ import type { InvoiceSummary, RuleDraft } from "@/lib/api-types";
 import { Mascot } from "@/components/mascot/mascot";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { DictateButton } from "./dictate-button";
 import { DraftPreview } from "./draft-preview";
 import { CONFIRM_LABEL } from "./rule-sentence";
+
+const join = (a: string, b: string) => (a.trim() ? `${a.trim()} ${b}` : b);
 
 const EXAMPLES = [
   "No paguen más de 5 mil dólares sin que yo apruebe",
@@ -38,6 +41,7 @@ interface Props {
 
 export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) {
   const [text, setText] = useState("");
+  const [interim, setInterim] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<RuleDraft | null>(null);
@@ -98,7 +102,7 @@ export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) 
           </span>
         )}
         <Textarea
-          value={text}
+          value={interim ? join(text, interim) : text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === "Enter" && translate()}
           placeholder={fromInvoice ? "Ej.: pide mi aprobación en casos como este" : "Ej.: no paguen más de 5 mil dólares sin que yo apruebe"}
@@ -108,9 +112,12 @@ export function RuleComposer({ onCreated, fromInvoice, onClearInvoice }: Props) 
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           {busy ? <Reading /> : <span className="text-xs text-muted-foreground">Ctrl + Enter para enviar</span>}
+          <span className="flex items-center gap-1">
+          <DictateButton onText={(t) => setText((c) => join(c, t))} onInterim={setInterim} disabled={busy} />
           <Button size="icon" onClick={translate} disabled={!text.trim() || busy} aria-label="Redactar la regla" className="size-8 rounded-full bg-brand text-brand-foreground hover:bg-brand/90 active:scale-[0.98]">
             {busy ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <ArrowUp />}
           </Button>
+          </span>
         </div>
       </div>
 
