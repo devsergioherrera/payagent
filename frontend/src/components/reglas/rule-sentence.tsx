@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import type { RuleDraft } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
@@ -44,4 +44,17 @@ export function TechnicalCondition({ rule, className }: { rule: RuleDraft; class
 export function OverridableNote({ rule }: { rule: RuleDraft }) {
   if (!rule.overridable) return null;
   return <p className="text-xs text-muted-foreground">Se puede anular con una excepción</p>;
+}
+
+export const CONFIRM_LABEL = { ALLOW: "Confirmar excepción", ESCALATE: "Confirmar regla", HOLD: "Confirmar regla" } as const;
+
+// An ALLOW rule weakens a control, so it is confirmed knowingly.
+export function AllowWarning({ rule }: { rule: Pick<RuleDraft, "effect"> }) {
+  if (rule.effect !== "ALLOW") return null;
+  return (
+    <p role="note" className="flex items-start gap-2 rounded-xl bg-escalate-soft px-3 py-2.5 text-[13px] leading-snug text-escalate">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+      Esta regla deja pasar pagos que hoy pedirían tu aprobación. Nunca anula un Frenar.
+    </p>
+  );
 }

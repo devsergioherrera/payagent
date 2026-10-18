@@ -1,6 +1,6 @@
 import type { RuleDraft } from "@/lib/api-types";
 import { EffectBadge } from "./effect-badge";
-import { OverridableNote, TechnicalCondition } from "./rule-sentence";
+import { AllowWarning, OverridableNote, TechnicalCondition } from "./rule-sentence";
 
 export function DraftPreview({ draft, children }: { draft: RuleDraft; children?: React.ReactNode }) {
   return (
@@ -12,6 +12,7 @@ export function DraftPreview({ draft, children }: { draft: RuleDraft; children?:
       <p className="text-[15px] leading-snug font-medium">{draft.summary}</p>
       <OverridableNote rule={draft} />
       <TechnicalCondition rule={draft} />
+      <AllowWarning rule={draft} />
       {children}
     </div>
   );

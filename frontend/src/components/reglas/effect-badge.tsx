@@ -8,6 +8,11 @@ export const EFFECT: Record<Effect, { label: string; style: string; icon: Lucide
   HOLD: { label: "Frenar", style: "bg-hold-soft text-hold", icon: OctagonX },
 };
 
+// Display order: the strictest effect first. The check below fails to compile if an Effect is left out.
+export const EFFECT_ORDER = ["HOLD", "ESCALATE", "ALLOW"] as const satisfies readonly Effect[];
+const _allEffectsOrdered: Exclude<Effect, (typeof EFFECT_ORDER)[number]> extends never ? true : never = true;
+void _allEffectsOrdered;
+
 export function EffectBadge({ effect, className }: { effect: Effect; className?: string }) {
   const { label, style, icon: Icon } = EFFECT[effect];
   return (

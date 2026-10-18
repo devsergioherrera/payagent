@@ -10,13 +10,15 @@ import { Chip, EmptyRows, ListPane, RowsSkeleton } from "./list-pane";
 import { DetailSkeleton, InvoiceLinks, Kpi, Section, StatusPill } from "./shared";
 import { count, PAGE_SIZE, useDebounced, useKeyedPolling } from "./use-directory";
 
-const pct = (po: PurchaseOrderRow) => Math.min(100, Math.round((po.invoiced_usd / po.amount_usd) * 100));
+// The real consumption (167 % for an overdrawn order); only the bar is capped at 100 %.
+const pct = (po: PurchaseOrderRow) => Math.round((po.invoiced_usd / po.amount_usd) * 100);
+const barPct = (po: PurchaseOrderRow) => Math.min(100, pct(po));
 
 function Consumption({ po, className }: { po: PurchaseOrderRow; className?: string }) {
   const over = po.invoiced_usd > po.amount_usd;
   return (
-    <div className={cn("h-1.5 overflow-hidden rounded-full bg-muted", className)} role="progressbar" aria-valuenow={pct(po)} aria-valuemin={0} aria-valuemax={100}>
-      <div className={cn("h-full rounded-full", over ? "bg-hold" : "bg-foreground/60")} style={{ width: `${pct(po)}%` }} />
+    <div className={cn("h-1.5 overflow-hidden rounded-full bg-muted", className)} role="progressbar" aria-valuenow={barPct(po)} aria-valuemin={0} aria-valuemax={100}>
+      <div className={cn("h-full rounded-full", over ? "bg-hold" : "bg-foreground/60")} style={{ width: `${barPct(po)}%` }} />
     </div>
   );
 }
@@ -84,7 +86,9 @@ export function OrdersTab({ selectedPo, initialQ, onSelect, onOpenVendor }: Prop
                     <div className="mt-0.5 flex items-baseline justify-between gap-3">
                       <span className="min-w-0 truncate text-xs text-muted-foreground">{p.vendor_name}</span>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {p.status === "CLOSED" ? "Cerrada" : `Saldo ${money(Math.max(0, p.remaining_usd))}`}
+                        {p.status === "CLOSED" ? "Cerrada" : p.invoiced_usd > p.amount_usd ? (
+                          <span className="font-medium text-hold">Excedida · {pct(p)} %</span>
+                        ) : `Saldo ${money(p.remaining_usd)}`}
                       </span>
                     </div>
                     <Consumption po={p} className="mt-2" />

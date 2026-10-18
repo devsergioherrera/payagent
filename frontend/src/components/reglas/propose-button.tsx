@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, errorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 export function ProposeButton({ onDone }: { onDone: () => void }) {
@@ -16,7 +16,7 @@ export function ProposeButton({ onDone }: { onDone: () => void }) {
       toast(created.length ? `${created.length} ${created.length === 1 ? "propuesta nueva" : "propuestas nuevas"}` : "No hay patrones nuevos");
       onDone();
     } catch (e) {
-      toast.error(e instanceof ApiError && e.status === 409 ? "Ya hay una revisión en curso" : (e as Error).message);
+      toast.error(e instanceof ApiError && e.status === 409 ? "Ya hay una revisión en curso" : errorMessage(e));
     } finally {
       setBusy(false);
     }

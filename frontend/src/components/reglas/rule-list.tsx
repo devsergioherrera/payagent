@@ -5,7 +5,7 @@ import { Bot, Eye, EyeOff, Search, SearchX, User } from "lucide-react";
 import type { Effect, RuleView } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { EFFECT } from "./effect-badge";
+import { EFFECT, EFFECT_ORDER } from "./effect-badge";
 import { RuleRow } from "./rule-row";
 
 const GROUPS = [
@@ -42,6 +42,7 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
   const [showOff, setShowOff] = useState(false);
   const [group, setGroup] = useState("all");
   const [limit, setLimit] = useState(PAGE);
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setLimit(PAGE); };
 
@@ -62,6 +63,20 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
     return c;
   }, [base]);
 
+  const activeCount = rules.filter((r) => r.active).length;
+  const offCount = rules.length - activeCount;
+
+  // Clears every filter that could hide the rule, then lets the row scroll itself into view.
+  function show(id: string) {
+    const index = rules.findIndex((r) => r.id === id);
+    if (index < 0) return;
+    setQuery(""); setEffects([]); setOrigin(null); setGroup("all");
+    setShowOff(showOff || !rules[index].active);
+    setLimit(Math.max(limit, rules.length));
+    setFocusId(id);
+    window.setTimeout(() => setFocusId((cur) => (cur === id ? null : cur)), 2500);
+  }
+
   const shown = group === "all" ? base : base.filter((r) => groupOf(r) === group);
   const toggleEffect = (e: Effect) => reset(setEffects)(effects.includes(e) ? effects.filter((x) => x !== e) : [...effects, e]);
 
@@ -69,7 +84,13 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
     <section className="flex min-h-0 flex-1 flex-col rounded-2xl border bg-card">
       <div className="flex flex-col gap-3 border-b p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold">Reglas activas</h2>
+          <h2 className="flex min-w-0 items-baseline gap-2 text-sm font-semibold">
+            Reglas
+            <span className="truncate text-xs font-normal text-muted-foreground">
+              {activeCount} {activeCount === 1 ? "activa" : "activas"}
+              {offCount > 0 && ` · ${offCount} ${offCount === 1 ? "desactivada" : "desactivadas"}`}
+            </span>
+          </h2>
           <Chip active={showOff} onClick={() => reset(setShowOff)(!showOff)}>
             {showOff ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
             Ver desactivadas
@@ -86,7 +107,7 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(EFFECT) as Effect[]).reverse().map((e) => {
+          {EFFECT_ORDER.map((e) => {
             const { icon: Icon, label } = EFFECT[e];
             return (
               <Chip key={e} active={effects.includes(e)} onClick={() => toggleEffect(e)}>
@@ -130,7 +151,7 @@ export function RuleList({ rules, onChange }: { rules: RuleView[]; onChange: () 
           </p>
         ) : (
           <ul className="divide-y">
-            {shown.slice(0, limit).map((r) => <RuleRow key={r.id} rule={r} onChange={onChange} />)}
+            {shown.slice(0, limit).map((r) => <RuleRow key={r.id} rule={r} onChange={onChange} highlighted={focusId === r.id} onShow={show} />)}
           </ul>
         )}
         {shown.length > limit && (

@@ -1,20 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Pencil, User } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Bot, CornerDownRight, Pencil, User } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { RuleView } from "@/lib/api-types";
 import { shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EFFECT } from "./effect-badge";
 import { RuleRevise } from "./rule-revise";
 import { TechnicalCondition } from "./rule-sentence";
 
-export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => void }) {
+interface Props {
+  rule: RuleView;
+  onChange: () => void;
+  highlighted: boolean;
+  onShow: (id: string) => void;
+}
+
+export function RuleRow({ rule, onChange, highlighted, onShow }: Props) {
+  const ref = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (highlighted) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlighted]);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,7 +42,7 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
       toast("Regla activada");
       onChange();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -43,14 +56,14 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
       setConfirming(false);
       onChange();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorMessage(e));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <li className="px-4 py-3.5">
+    <li ref={ref} className={cn("px-4 py-3.5 transition-colors duration-700", highlighted && "bg-brand-soft")}>
       <div className="flex items-start gap-3">
         <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", !rule.active && "opacity-60")}>
           <p className="text-sm leading-snug font-medium">{rule.summary}</p>
@@ -61,7 +74,16 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
             <span aria-hidden>·</span>
             <span className="min-w-0 truncate">{rule.name}</span>
             {rule.overridable && <><span aria-hidden>·</span><span>Se puede anular</span></>}
-            {!rule.active && <><span aria-hidden>·</span><span>Desactivada</span></>}
+            {!rule.active && (
+              <>
+                <span aria-hidden>·</span>
+                <span>
+                  {rule.deactivated_by
+                    ? `Desactivada por ${rule.deactivated_by}${rule.deactivated_at ? ` · ${shortDate(rule.deactivated_at)}` : ""}`
+                    : "Desactivada"}
+                </span>
+              </>
+            )}
           </p>
           <TechnicalCondition rule={rule} />
           <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
@@ -70,6 +92,19 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
             <span aria-hidden>·</span>
             <span>se disparó {rule.times_fired} {rule.times_fired === 1 ? "vez" : "veces"}</span>
           </p>
+          {rule.replaced_by && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <CornerDownRight className="size-3.5" aria-hidden />
+              Reemplazada por «{rule.replaced_by.name}»
+              <button
+                type="button"
+                onClick={() => rule.replaced_by && onShow(rule.replaced_by.id)}
+                className="font-medium text-brand underline-offset-2 hover:underline"
+              >
+                Ver esa versión
+              </button>
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {rule.active && (
@@ -84,7 +119,19 @@ export function RuleRow({ rule, onChange }: { rule: RuleView; onChange: () => vo
               <Pencil className="size-4" />
             </Button>
           )}
-          <Switch checked={rule.active} disabled={busy} onCheckedChange={toggle} aria-label={`Regla activa: ${rule.name}`} />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Switch
+                  checked={rule.active}
+                  disabled={busy || rule.replaced_by !== null}
+                  onCheckedChange={toggle}
+                  aria-label={`Regla activa: ${rule.name}`}
+                />
+              </TooltipTrigger>
+              {rule.replaced_by && <TooltipContent>Reemplazada por «{rule.replaced_by.name}»</TooltipContent>}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
       {editing && rule.active && (
